@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildNutritionTimeline,
   CARB_CAP_DEFAULT_G_PER_HOUR,
   CARB_CAP_MAX,
   CARB_CAP_MIN,
+  CARB_CAP_RECOMMENDED,
+  computeCapUsage,
   computeNutritionPlan,
   DEFAULT_NUTRITION_VALUES,
   DRINK_INTERVAL_MINUTES,
@@ -12,6 +15,7 @@ import {
   SODIUM_CAP_DEFAULT_MG_PER_HOUR,
   SODIUM_CAP_MAX,
   SODIUM_CAP_MIN,
+  SODIUM_CAP_RECOMMENDED,
   SODIUM_MG_PER_GRAM_SALT,
   TEXT_MAX_LENGTH,
   WARNING_DRINK_CONCENTRATION,
@@ -327,5 +331,108 @@ describe("computeNutritionPlan — cas limites", () => {
   it("retourne null quand le formulaire est invalide", () => {
     expect(computeNutritionPlan(formValues({ minutes: "" }))).toBeNull();
     expect(computeNutritionPlan(formValues({ productWeight: "0" }))).toBeNull();
+  });
+});
+
+describe("repères recommandés", () => {
+  it("expose les repères usuels de glucides et de sodium", () => {
+    expect(CARB_CAP_RECOMMENDED).toEqual({ min: 30, max: 90 });
+    expect(SODIUM_CAP_RECOMMENDED).toEqual({ min: 300, max: 1000 });
+  });
+});
+
+describe("computeCapUsage — exemple 4", () => {
+  it("donne le ratio d'usage d'un plafond sans dépassement", () => {
+    const usage = computeCapUsage(55.5, 60);
+    expect(usage.ratio).toBeCloseTo(0.925, 6);
+    expect(usage.exceeded).toBe(false);
+  });
+
+  it("signale le dépassement d'un plafond", () => {
+    const usage = computeCapUsage(81, 60);
+    expect(usage.ratio).toBeCloseTo(1.35, 6);
+    expect(usage.exceeded).toBe(true);
+  });
+});
+
+describe("buildNutritionTimeline — exemple 1", () => {
+  it("place 4 prises solides à 15, 45, 75 et 105 min", () => {
+    const values = formValues();
+    const plan = computeNutritionPlan(values);
+    expect(plan).not.toBeNull();
+    if (!plan) return;
+
+    const timeline = buildNutritionTimeline(values, plan);
+
+    expect(timeline.minutes).toBe(120);
+    expect(timeline.events).toHaveLength(4);
+    expect(timeline.events.map((event) => event.minute)).toEqual([15, 45, 75, 105]);
+    expect(timeline.events.every((event) => event.kind === "solid")).toBe(true);
+    expect(timeline.events[0].carbsG).toBeCloseTo(25, 6);
+    expect(timeline.events[0].sodiumMg).toBeCloseTo(100, 6);
+
+    const last = timeline.series[timeline.series.length - 1];
+    expect(last.minute).toBe(120);
+    expect(last.carbsG).toBeCloseTo(100, 6);
+    expect(last.sodiumMg).toBeCloseTo(400, 6);
+    expect(last.carbsG).toBeCloseTo(plan.totals.carbsG, 6);
+    expect(last.sodiumMg).toBeCloseTo(plan.totals.sodiumMg, 6);
+
+    expect(timeline.capLines.carbsG.from).toEqual({ minute: 0, value: 0 });
+    expect(timeline.capLines.carbsG.to).toEqual({ minute: 120, value: 120 });
+    expect(timeline.capLines.sodiumMg.from).toEqual({ minute: 0, value: 0 });
+    expect(timeline.capLines.sodiumMg.to.value).toBeCloseTo(1200, 6);
+  });
+});
+
+describe("buildNutritionTimeline — exemple 2", () => {
+  it("place 8 gorgées et 3 prises solides pour un cumul final de 111 g / 876 mg", () => {
+    const values = formValues({ drinkEnabled: true });
+    const plan = computeNutritionPlan(values);
+    expect(plan).not.toBeNull();
+    if (!plan) return;
+
+    const timeline = buildNutritionTimeline(values, plan);
+    const drinks = timeline.events.filter((event) => event.kind === "drink");
+    const solids = timeline.events.filter((event) => event.kind === "solid");
+
+    expect(drinks.map((event) => event.minute)).toEqual([15, 30, 45, 60, 75, 90, 105, 120]);
+    expect(drinks[0].carbsG).toBeCloseTo(4.5, 6);
+    expect(drinks[0].sodiumMg).toBeCloseTo(72, 6);
+    expect(solids.map((event) => event.minute)).toEqual([20, 60, 100]);
+    expect(solids[0].carbsG).toBeCloseTo(25, 6);
+    expect(solids[0].sodiumMg).toBeCloseTo(100, 6);
+
+    const minutes = timeline.events.map((event) => event.minute);
+    expect(minutes).toEqual([...minutes].sort((a, b) => a - b));
+
+    expect(timeline.series[0]).toEqual({ minute: 0, carbsG: 0, sodiumMg: 0 });
+    const last = timeline.series[timeline.series.length - 1];
+    expect(last.minute).toBe(120);
+    expect(last.carbsG).toBeCloseTo(111, 6);
+    expect(last.sodiumMg).toBeCloseTo(876, 6);
+    expect(last.carbsG).toBeCloseTo(plan.totals.carbsG, 6);
+    expect(last.sodiumMg).toBeCloseTo(plan.totals.sodiumMg, 6);
+  });
+});
+
+describe("buildNutritionTimeline — exemple 3", () => {
+  it("ne crée aucune prise de boisson quand la durée est plus courte que l'intervalle", () => {
+    const values = formValues({ minutes: "10", drinkEnabled: true });
+    const plan = computeNutritionPlan(values);
+    expect(plan).not.toBeNull();
+    if (!plan) return;
+
+    const timeline = buildNutritionTimeline(values, plan);
+
+    expect(plan.drink?.servings).toBe(0);
+    expect(timeline.minutes).toBe(10);
+    expect(timeline.events.filter((event) => event.kind === "drink")).toHaveLength(0);
+    expect(timeline.events.filter((event) => event.kind === "solid")).toHaveLength(0);
+    expect(timeline.series[timeline.series.length - 1]).toEqual({
+      minute: 10,
+      carbsG: 0,
+      sodiumMg: 0,
+    });
   });
 });

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import EnergyCalculator from "@/components/EnergyCalculator";
 
@@ -163,5 +163,21 @@ describe("EnergyCalculator", () => {
     expect(screen.queryByTestId("results")).not.toBeInTheDocument();
     expect(screen.queryByText("Choisis un sexe.")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Homme")).toHaveFocus();
+  });
+
+  it("préremplit la durée et notifie chaque saisie puis le Reset", async () => {
+    const onMinutesChange = vi.fn();
+    render(<EnergyCalculator initialMinutes="45" onMinutesChange={onMinutesChange} />);
+    const u = user();
+
+    expect(screen.getByLabelText("Durée (minutes)")).toHaveValue(45);
+
+    const duration = screen.getByLabelText("Durée (minutes)");
+    await u.clear(duration);
+    await u.type(duration, "60");
+    expect(onMinutesChange).toHaveBeenLastCalledWith("60");
+
+    await u.click(screen.getByRole("button", { name: "Reset" }));
+    expect(onMinutesChange).toHaveBeenLastCalledWith("");
   });
 });

@@ -1,5 +1,6 @@
-import EnergyCalculator from "@/components/EnergyCalculator";
-import NutritionPlanner from "@/components/NutritionPlanner";
+import { Suspense } from "react";
+
+import HomeContent from "@/components/HomeContent";
 
 export default function Home() {
   return (
@@ -12,8 +13,9 @@ export default function Home() {
           Métabolisme de base, dépense du jour et coût énergétique de ton effort.
         </p>
       </header>
-      <EnergyCalculator />
-      <NutritionPlanner />
+      <Suspense>
+        <HomeContent />
+      </Suspense>
     </main>
   );
 }

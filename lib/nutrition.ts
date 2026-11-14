@@ -8,6 +8,10 @@ export const SODIUM_CAP_DEFAULT_MG_PER_HOUR = 600;
 export const SODIUM_CAP_MIN = 100;
 export const SODIUM_CAP_MAX = 1500;
 
+/** Repères usuels affichés sous les champs de plafond. */
+export const CARB_CAP_RECOMMENDED = { min: 30, max: 90 };
+export const SODIUM_CAP_RECOMMENDED = { min: 300, max: 1000 };
+
 export const MINUTES_MIN = 1;
 export const MINUTES_MAX = 1440;
 
@@ -349,5 +353,114 @@ export function computeNutritionPlan(values: NutritionFormValues): NutritionPlan
     },
     intervalMinutes: units > 0 ? minutes / units : null,
     warnings,
+  };
+}
+
+/** Une prise de la timeline : boisson (gorgée) ou solide (unité du produit). */
+export type TimelineEvent = {
+  minute: number;
+  kind: "drink" | "solid";
+  carbsG: number;
+  sodiumMg: number;
+};
+
+/** Point de la courbe cumulée, en glucides et en sodium. */
+export type TimelinePoint = {
+  minute: number;
+  carbsG: number;
+  sodiumMg: number;
+};
+
+/** Extrémité d'une droite de plafond. */
+export type TimelineCapPoint = {
+  minute: number;
+  value: number;
+};
+
+/** Droite de plafond : du départ (0) à la fin de l'effort. */
+export type TimelineCapLine = {
+  from: TimelineCapPoint;
+  to: TimelineCapPoint;
+};
+
+export type NutritionTimeline = {
+  minutes: number;
+  events: TimelineEvent[];
+  series: TimelinePoint[];
+  capLines: { carbsG: TimelineCapLine; sodiumMg: TimelineCapLine };
+};
+
+/** Part du plafond consommée : ratio = valeur / plafond. */
+export function computeCapUsage(value: number, cap: number): { ratio: number; exceeded: boolean } {
+  return { ratio: value / cap, exceeded: value > cap };
+}
+
+/** Données du graphe : prises échelonnées, cumuls et droites de plafond. */
+export function buildNutritionTimeline(
+  values: NutritionFormValues,
+  plan: NutritionPlan,
+): NutritionTimeline {
+  const minutes = parseDecimal(values.minutes) ?? 0;
+  const carbCap = parseDecimal(values.carbCap) ?? 0;
+  const sodiumCap = parseDecimal(values.sodiumCap) ?? 0;
+  const productCarbs = parseDecimal(values.productCarbs) ?? 0;
+  const productSalt = parseDecimal(values.productSalt) ?? 0;
+
+  const events: TimelineEvent[] = [];
+
+  // Boisson : une prise toutes les 15 min, k = 1…servings.
+  if (plan.drink && plan.drink.servings > 0) {
+    const carbsPerServing = plan.drink.carbsG / plan.drink.servings;
+    const sodiumPerServing = plan.drink.sodiumMg / plan.drink.servings;
+    for (let index = 1; index <= plan.drink.servings; index += 1) {
+      events.push({
+        minute: DRINK_INTERVAL_MINUTES * index,
+        kind: "drink",
+        carbsG: carbsPerServing,
+        sodiumMg: sodiumPerServing,
+      });
+    }
+  }
+
+  // Solide : prises réparties au milieu de chaque intervalle (minutes × (i + 0,5) / units).
+  for (let index = 0; index < plan.units; index += 1) {
+    events.push({
+      minute: (minutes * (index + 0.5)) / plan.units,
+      kind: "solid",
+      carbsG: productCarbs,
+      sodiumMg: productSalt * SODIUM_MG_PER_GRAM_SALT,
+    });
+  }
+
+  events.sort((first, second) => first.minute - second.minute);
+
+  const series: TimelinePoint[] = [{ minute: 0, carbsG: 0, sodiumMg: 0 }];
+  let carbsG = 0;
+  let sodiumMg = 0;
+  for (const event of events) {
+    carbsG += event.carbsG;
+    sodiumMg += event.sodiumMg;
+    series.push({ minute: event.minute, carbsG, sodiumMg });
+  }
+  if (series[series.length - 1].minute < minutes) {
+    series.push({ minute: minutes, carbsG, sodiumMg });
+  }
+
+  const hours = minutes / 60;
+
+  return {
+    minutes,
+    events,
+    series,
+    capLines: {
+      carbsG: {
+        from: { minute: 0, value: 0 },
+        to: { minute: minutes, value: carbCap * hours },
+      },
+      sodiumMg: {
+        from: { minute: 0, value: 0 },
+        to: { minute: minutes, value: sodiumCap * hours },
+      },
+    },
   };
 }

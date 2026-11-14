@@ -5,9 +5,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import NutritionPlanner from "@/components/NutritionPlanner";
 import { NUTRITION_STORAGE_KEY } from "@/lib/nutritionStorage";
 
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push }),
+}));
+
 const user = () => userEvent.setup();
 
-async function fillProductForm() {
+/** Remplit un produit solide valide de référence. */
+async function fillProduct() {
   const u = user();
   await u.type(screen.getByLabelText("Marque"), "Overstims");
   await u.type(screen.getByLabelText("Nom du produit"), "Barre endurance");
@@ -16,12 +23,42 @@ async function fillProductForm() {
   await u.type(screen.getByLabelText("Glucides (g)"), "25");
   await u.type(screen.getByLabelText("Sel (g)"), "0.25");
   await u.type(screen.getByLabelText("Poids (g)"), "60");
-  await u.type(screen.getByLabelText("Durée de l'effort (min)"), "120");
   return u;
 }
 
+/** Remplit une boisson valide de référence. */
+async function fillDrink(u: ReturnType<typeof userEvent.setup>) {
+  await u.click(screen.getByLabelText("Ajouter une boisson énergétique"));
+  await u.type(screen.getByLabelText("Marque de la boisson"), "Overstims");
+  await u.type(screen.getByLabelText("Nom de la boisson"), "Boisson énergétique");
+  await u.type(screen.getByLabelText("Concentration (g/L)"), "40");
+  await u.type(screen.getByLabelText("Énergie pour 100 g (kcal)"), "380");
+  await u.type(screen.getByLabelText("Glucides pour 100 g (g)"), "75");
+  await u.type(screen.getByLabelText("Sel pour 100 g (g)"), "3");
+}
+
+const STORED_PRODUCT = {
+  carbCap: "60",
+  sodiumCap: "600",
+  productBrand: "Overstims",
+  productName: "Barre endurance",
+  productType: "Barre",
+  productKcal: "200",
+  productCarbs: "25",
+  productSalt: "0.25",
+  productWeight: "60",
+  drinkEnabled: false,
+  drinkBrand: "",
+  drinkName: "",
+  drinkConcentration: "",
+  drinkKcalPer100: "",
+  drinkCarbsPer100: "",
+  drinkSaltPer100: "",
+};
+
 describe("NutritionPlanner", () => {
   beforeEach(() => {
+    push.mockClear();
     window.localStorage.clear();
   });
 
@@ -30,20 +67,20 @@ describe("NutritionPlanner", () => {
     window.localStorage.clear();
   });
 
-  it("affiche ses trois cartes et les champs attendus", () => {
-    render(<NutritionPlanner />);
+  it("affiche les plafonds, le produit, la boisson et les deux actions", () => {
+    render(<NutritionPlanner minutes="" />);
 
     expect(
-      screen.getByRole("heading", { level: 2, name: "Produit" }),
+      screen.getByRole("heading", { level: 2, name: "Plafond à respecter" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Produit" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Boisson" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { level: 2, name: "Plan de nutrition" }),
-    ).toBeInTheDocument();
 
     expect(screen.getByLabelText("Glucides max (g/h)")).toHaveValue(60);
     expect(screen.getByLabelText("Sodium max (mg/h)")).toHaveValue(600);
-    expect(screen.getByLabelText("Durée de l'effort (min)")).toBeInTheDocument();
+    expect(screen.getByText("Repère usuel : 30 à 90 g/h")).toBeInTheDocument();
+    expect(screen.getByText("Repère usuel : 300 à 1000 mg/h")).toBeInTheDocument();
+
     expect(screen.getByLabelText("Marque")).toBeInTheDocument();
     expect(screen.getByLabelText("Nom du produit")).toBeInTheDocument();
     expect(screen.getByLabelText("Type")).toBeInTheDocument();
@@ -52,27 +89,29 @@ describe("NutritionPlanner", () => {
     expect(screen.getByLabelText("Sel (g)")).toBeInTheDocument();
     expect(screen.getByLabelText("Poids (g)")).toBeInTheDocument();
     expect(screen.getByLabelText("Ajouter une boisson énergétique")).not.toBeChecked();
+
     expect(screen.getByRole("button", { name: "Calculer ma nutrition" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Réinitialiser la nutrition" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Repères généraux, à adapter avec un professionnel de santé/i),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Enregistré dans ce navigateur/i)).toBeInTheDocument();
+
+    // Plus aucune durée dans la nutrition ni aucun résultat calculé sur cette page.
+    expect(screen.queryByLabelText("Durée de l'effort (min)")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("nutrition-units")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("nutrition-results")).not.toBeInTheDocument();
   });
 
-  it("affiche et masque les champs de la boisson avec la case à cocher", async () => {
-    render(<NutritionPlanner />);
+  it("ne montre que la case quand la boisson est décochée", async () => {
+    render(<NutritionPlanner minutes="120" />);
     const u = user();
 
     expect(screen.queryByLabelText("Concentration (g/L)")).not.toBeInTheDocument();
 
     await u.click(screen.getByLabelText("Ajouter une boisson énergétique"));
 
-    expect(screen.getByLabelText("Concentration (g/L)")).toBeInTheDocument();
     expect(screen.getByLabelText("Marque de la boisson")).toBeInTheDocument();
     expect(screen.getByLabelText("Nom de la boisson")).toBeInTheDocument();
+    expect(screen.getByLabelText("Concentration (g/L)")).toBeInTheDocument();
     expect(screen.getByLabelText("Énergie pour 100 g (kcal)")).toBeInTheDocument();
     expect(screen.getByLabelText("Glucides pour 100 g (g)")).toBeInTheDocument();
     expect(screen.getByLabelText("Sel pour 100 g (g)")).toBeInTheDocument();
@@ -80,104 +119,156 @@ describe("NutritionPlanner", () => {
     await u.click(screen.getByLabelText("Ajouter une boisson énergétique"));
 
     expect(screen.queryByLabelText("Concentration (g/L)")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("drink-summary-name")).not.toBeInTheDocument();
   });
 
-  it("affiche le plan de l'exemple 1 dès que le formulaire est valide", async () => {
-    render(<NutritionPlanner />);
-    await fillProductForm();
+  it("replie le produit après validation et le rouvre avec « Modifier le produit »", async () => {
+    render(<NutritionPlanner minutes="120" />);
+    const u = await fillProduct();
 
-    expect(screen.getByTestId("nutrition-units")).toHaveTextContent("4");
-    expect(screen.getByTestId("nutrition-interval")).toHaveTextContent("30");
-    expect(screen.getByTestId("nutrition-total-carbs")).toHaveTextContent("100,0");
-    expect(screen.getByTestId("nutrition-total-sodium")).toHaveTextContent("400");
-    expect(screen.getByTestId("nutrition-rate-carbs")).toHaveTextContent("50,0");
-    expect(screen.getByTestId("nutrition-rate-sodium")).toHaveTextContent("200");
-    expect(screen.queryByTestId("nutrition-drink-volume")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("nutrition-warning")).not.toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Valider le produit" }));
+
+    expect(screen.queryByLabelText("Marque")).not.toBeInTheDocument();
+    expect(screen.getByTestId("product-summary-name")).toHaveTextContent("Barre endurance");
+    expect(screen.getByTestId("product-summary-type")).toHaveTextContent("Barre");
+    expect(screen.getByTestId("product-summary-details")).toHaveTextContent(
+      "Glucides 25 g · Sel 0,25 g",
+    );
+
+    await u.click(screen.getByRole("button", { name: "Modifier le produit" }));
+
+    expect(screen.getByLabelText("Marque")).toHaveValue("Overstims");
+    expect(screen.queryByTestId("product-summary-name")).not.toBeInTheDocument();
   });
 
-  it("affiche la boisson et l'alerte de concentration de l'exemple 4", async () => {
-    render(<NutritionPlanner />);
-    const u = await fillProductForm();
+  it("garde le produit ouvert et affiche ses erreurs s'il est incomplet", async () => {
+    render(<NutritionPlanner minutes="120" />);
 
-    const duration = screen.getByLabelText("Durée de l'effort (min)");
-    await u.clear(duration);
-    await u.type(duration, "60");
+    await user().click(screen.getByRole("button", { name: "Valider le produit" }));
+
+    expect(screen.getByText("La marque est obligatoire.")).toBeInTheDocument();
+    expect(screen.getByText("Choisis un type de produit.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Marque")).toBeInTheDocument();
+    expect(screen.queryByTestId("product-summary-name")).not.toBeInTheDocument();
+  });
+
+  it("replie la boisson après validation et la rouvre avec « Modifier la boisson »", async () => {
+    render(<NutritionPlanner minutes="120" />);
+    const u = user();
+    await fillDrink(u);
+
+    await u.click(screen.getByRole("button", { name: "Valider la boisson" }));
+
+    expect(screen.queryByLabelText("Concentration (g/L)")).not.toBeInTheDocument();
+    expect(screen.getByTestId("drink-summary-name")).toHaveTextContent("Boisson énergétique");
+    expect(screen.getByTestId("drink-summary-details")).toHaveTextContent(
+      "Glucides 75 g/100 g · Sel 3 g/100 g · 40 g/L",
+    );
+
+    await u.click(screen.getByRole("button", { name: "Modifier la boisson" }));
+
+    expect(screen.getByLabelText("Concentration (g/L)")).toHaveValue(40);
+    expect(screen.queryByTestId("drink-summary-name")).not.toBeInTheDocument();
+  });
+
+  it("garde la boisson ouverte et affiche ses erreurs si elle est incomplète", async () => {
+    render(<NutritionPlanner minutes="120" />);
+    const u = user();
 
     await u.click(screen.getByLabelText("Ajouter une boisson énergétique"));
-    await u.type(screen.getByLabelText("Marque de la boisson"), "Overstims");
-    await u.type(screen.getByLabelText("Nom de la boisson"), "Boisson énergétique");
-    await u.type(screen.getByLabelText("Concentration (g/L)"), "150");
-    await u.type(screen.getByLabelText("Énergie pour 100 g (kcal)"), "380");
-    await u.type(screen.getByLabelText("Glucides pour 100 g (g)"), "90");
-    await u.type(screen.getByLabelText("Sel pour 100 g (g)"), "0");
+    await u.click(screen.getByRole("button", { name: "Valider la boisson" }));
 
-    expect(screen.getByTestId("nutrition-drink-volume")).toHaveTextContent("600");
-    expect(screen.getByTestId("nutrition-units")).toHaveTextContent("0");
-    expect(screen.getByTestId("nutrition-warning")).toHaveTextContent(
-      "Réduis la concentration de la boisson.",
-    );
+    expect(screen.getByText("La concentration est obligatoire.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Concentration (g/L)")).toBeInTheDocument();
   });
 
-  it("affiche une erreur par champ vide et aucun résultat", async () => {
-    render(<NutritionPlanner />);
+  it("navigue vers le plan quand tout est valide", async () => {
+    render(<NutritionPlanner minutes="120" />);
+    const u = await fillProduct();
+
+    expect(push).not.toHaveBeenCalled();
+
+    await u.click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
+
+    expect(push).toHaveBeenCalledWith("/nutrition?min=120");
+  });
+
+  it("demande la durée du bloc Activité quand elle manque", async () => {
+    render(<NutritionPlanner minutes="" />);
+    const u = await fillProduct();
+
+    await u.click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Renseigne la durée dans le bloc Activité.");
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("refuse une durée hors bornes sans naviguer", async () => {
+    render(<NutritionPlanner minutes="0" />);
+    const u = await fillProduct();
+
+    await u.click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Renseigne la durée dans le bloc Activité.");
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("rouvre le produit en erreur et ne navigue pas", async () => {
+    render(<NutritionPlanner minutes="120" />);
 
     await user().click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
 
-    expect(screen.getByText("La durée de l'effort est obligatoire.")).toBeInTheDocument();
     expect(screen.getByText("La marque est obligatoire.")).toBeInTheDocument();
-    expect(screen.getByText("Le nom du produit est obligatoire.")).toBeInTheDocument();
-    expect(screen.getByText("Choisis un type de produit.")).toBeInTheDocument();
     expect(screen.getByText("Le poids de l'unité est obligatoire.")).toBeInTheDocument();
-    expect(screen.queryByTestId("nutrition-results")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Marque")).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
   });
 
-  it("signale les champs de la boisson quand la case est cochée", async () => {
-    render(<NutritionPlanner />);
-    const u = user();
+  it("rouvre la boisson en erreur et ne navigue pas", async () => {
+    render(<NutritionPlanner minutes="120" />);
+    const u = await fillProduct();
 
     await u.click(screen.getByLabelText("Ajouter une boisson énergétique"));
     await u.click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
 
     expect(screen.getByText("La concentration est obligatoire.")).toBeInTheDocument();
-    expect(screen.getByText("Le nom de la boisson est obligatoire.")).toBeInTheDocument();
-    expect(screen.queryByTestId("nutrition-results")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Concentration (g/L)")).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
   });
 
-  it("signale une valeur hors bornes et n'affiche aucun résultat", async () => {
-    render(<NutritionPlanner />);
-    const u = await fillProductForm();
-    expect(screen.getByTestId("nutrition-results")).toBeInTheDocument();
+  it("démarre replié quand le stockage contient un produit valide", () => {
+    window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(STORED_PRODUCT));
 
-    const carbCap = screen.getByLabelText("Glucides max (g/h)");
-    await u.clear(carbCap);
-    await u.type(carbCap, "19");
+    render(<NutritionPlanner minutes="120" />);
 
-    expect(screen.getByText(/entre 20 et 120/)).toBeInTheDocument();
-    expect(screen.queryByTestId("nutrition-results")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Marque")).not.toBeInTheDocument();
+    expect(screen.getByTestId("product-summary-name")).toHaveTextContent("Barre endurance");
   });
 
-  it("restaure le produit enregistré mais pas la durée", async () => {
-    const { unmount } = render(<NutritionPlanner />);
-    await fillProductForm();
-    unmount();
-
-    render(<NutritionPlanner />);
-
-    expect(screen.getByLabelText("Marque")).toHaveValue("Overstims");
-    expect(screen.getByLabelText("Nom du produit")).toHaveValue("Barre endurance");
-    expect(screen.getByLabelText("Glucides (g)")).toHaveValue(25);
-    expect(screen.getByLabelText("Durée de l'effort (min)")).toHaveValue(null);
-  });
-
-  it("repart des valeurs par défaut si le stockage est corrompu", () => {
+  it("démarre ouvert quand le stockage est corrompu", () => {
     window.localStorage.setItem(NUTRITION_STORAGE_KEY, "{pas du json");
 
-    render(<NutritionPlanner />);
+    render(<NutritionPlanner minutes="120" />);
 
     expect(screen.getByLabelText("Marque")).toHaveValue("");
     expect(screen.getByLabelText("Glucides max (g/h)")).toHaveValue(60);
-    expect(screen.queryByTestId("nutrition-results")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("product-summary-name")).not.toBeInTheDocument();
+  });
+
+  it("réinitialise les valeurs, rouvre les blocs et vide le stockage", async () => {
+    render(<NutritionPlanner minutes="120" />);
+    const u = await fillProduct();
+
+    await u.click(screen.getByRole("button", { name: "Valider le produit" }));
+    expect(window.localStorage.getItem(NUTRITION_STORAGE_KEY)).not.toBeNull();
+
+    await u.click(screen.getByRole("button", { name: "Réinitialiser la nutrition" }));
+
+    expect(window.localStorage.getItem(NUTRITION_STORAGE_KEY)).toBeNull();
+    expect(screen.getByLabelText("Marque")).toHaveValue("");
+    expect(screen.getByLabelText("Glucides max (g/h)")).toHaveValue(60);
+    expect(screen.getByLabelText("Sodium max (mg/h)")).toHaveValue(600);
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("fonctionne quand localStorage lève", async () => {
@@ -188,27 +279,13 @@ describe("NutritionPlanner", () => {
       throw new Error("stockage indisponible");
     });
 
-    render(<NutritionPlanner />);
+    render(<NutritionPlanner minutes="120" />);
 
     expect(screen.getByLabelText("Marque")).toHaveValue("");
 
-    await fillProductForm();
+    const u = await fillProduct();
+    await u.click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
 
-    expect(screen.getByTestId("nutrition-units")).toHaveTextContent("4");
-  });
-
-  it("réinitialise les champs, les résultats et la clé de stockage", async () => {
-    render(<NutritionPlanner />);
-    const u = await fillProductForm();
-    expect(window.localStorage.getItem(NUTRITION_STORAGE_KEY)).not.toBeNull();
-
-    await u.click(screen.getByRole("button", { name: "Réinitialiser la nutrition" }));
-
-    expect(screen.getByLabelText("Marque")).toHaveValue("");
-    expect(screen.getByLabelText("Durée de l'effort (min)")).toHaveValue(null);
-    expect(screen.getByLabelText("Glucides max (g/h)")).toHaveValue(60);
-    expect(screen.getByLabelText("Sodium max (mg/h)")).toHaveValue(600);
-    expect(screen.queryByTestId("nutrition-results")).not.toBeInTheDocument();
-    expect(window.localStorage.getItem(NUTRITION_STORAGE_KEY)).toBeNull();
+    expect(push).toHaveBeenCalledWith("/nutrition?min=120");
   });
 });

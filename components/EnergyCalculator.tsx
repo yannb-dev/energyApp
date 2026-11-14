@@ -39,8 +39,21 @@ const BUTTON_BASE =
   "flex h-11 flex-1 items-center justify-center rounded-xl px-4 text-sm font-semibold transition duration-200 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent-strong focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 const TILE = "rounded-xl border border-line bg-surface-2 p-3";
 
-export default function EnergyCalculator() {
-  const [values, setValues] = useState<EnergyFormValues>(EMPTY_VALUES);
+type EnergyCalculatorProps = {
+  /** Valeur initiale du champ « Durée (minutes) », relue par la page. */
+  initialMinutes?: string;
+  /** Appelée à chaque saisie de la durée et au Reset (avec une chaîne vide). */
+  onMinutesChange?: (minutes: string) => void;
+};
+
+export default function EnergyCalculator({
+  initialMinutes = "",
+  onMinutesChange,
+}: EnergyCalculatorProps = {}) {
+  const [values, setValues] = useState<EnergyFormValues>(() => ({
+    ...EMPTY_VALUES,
+    minutes: initialMinutes,
+  }));
   const [activityIndex, setActivityIndex] = useState(DEFAULT_ACTIVITY_INDEX);
   const [submitted, setSubmitted] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
@@ -80,6 +93,7 @@ export default function EnergyCalculator() {
     setActivityIndex(DEFAULT_ACTIVITY_INDEX);
     setSubmitted(false);
     firstFieldRef.current?.focus();
+    onMinutesChange?.("");
   }
 
   const sexError = errorFor("sex");
@@ -315,9 +329,11 @@ export default function EnergyCalculator() {
               max={MINUTES_MAX}
               step={1}
               value={values.minutes}
-              onChange={(event) =>
-                setValues((current) => ({ ...current, minutes: event.target.value }))
-              }
+              onChange={(event) => {
+                const nextMinutes = event.target.value;
+                setValues((current) => ({ ...current, minutes: nextMinutes }));
+                onMinutesChange?.(nextMinutes);
+              }}
               aria-invalid={minutesError ? true : undefined}
               aria-describedby={minutesError ? "erreur-duree" : undefined}
               className={FIELD}

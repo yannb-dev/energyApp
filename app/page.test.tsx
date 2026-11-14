@@ -1,7 +1,12 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import Home from "@/app/page";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 describe("page d'accueil", () => {
   it("affiche le calculateur de dépense énergétique", () => {
@@ -13,6 +18,6 @@ describe("page d'accueil", () => {
     expect(screen.getByLabelText("Âge (ans)")).toBeInTheDocument();
     expect(screen.getByLabelText("Niveau d'activité")).toBeInTheDocument();
     expect(screen.getByText(/estimation indicative, non médicale/i)).toBeInTheDocument();
-    expect(screen.getByLabelText("Durée de l'effort (min)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Durée (minutes)")).toBeInTheDocument();
   });
 });
