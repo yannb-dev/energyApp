@@ -1,4 +1,5 @@
 import EnergyCalculator from "@/components/EnergyCalculator";
+import NutritionPlanner from "@/components/NutritionPlanner";
 
 export default function Home() {
   return (
@@ -12,6 +13,7 @@ export default function Home() {
         </p>
       </header>
       <EnergyCalculator />
+      <NutritionPlanner />
     </main>
   );
 }

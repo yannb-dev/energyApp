@@ -13,5 +13,6 @@ describe("page d'accueil", () => {
     expect(screen.getByLabelText("Âge (ans)")).toBeInTheDocument();
     expect(screen.getByLabelText("Niveau d'activité")).toBeInTheDocument();
     expect(screen.getByText(/estimation indicative, non médicale/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Durée de l'effort (min)")).toBeInTheDocument();
   });
 });

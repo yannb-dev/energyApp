@@ -54,7 +54,7 @@ export type EnergyResults = {
 };
 
 /** Lit un nombre saisi à la française (« 70,5 » comme « 70.5 »). */
-function parseDecimal(raw: string): number | null {
+export function parseDecimal(raw: string): number | null {
   const normalized = raw.trim().replace(",", ".");
   if (normalized === "") {
     return null;
