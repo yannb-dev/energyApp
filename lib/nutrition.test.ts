@@ -7,10 +7,13 @@ import {
   CARB_CAP_MIN,
   CARB_CAP_RECOMMENDED,
   computeCapUsage,
+  computeHydrationRate,
   computeNutritionPlan,
   DEFAULT_NUTRITION_VALUES,
   DRINK_INTERVAL_MINUTES,
   DRINK_SERVING_ML,
+  HYDRATION_CAP_ML_PER_HOUR,
+  HYDRATION_CAP_RECOMMENDED,
   PRODUCT_TYPES,
   SODIUM_CAP_DEFAULT_MG_PER_HOUR,
   SODIUM_CAP_MAX,
@@ -18,6 +21,8 @@ import {
   SODIUM_CAP_RECOMMENDED,
   SODIUM_MG_PER_GRAM_SALT,
   TEXT_MAX_LENGTH,
+  TIMELINE_PX_PER_10_MIN,
+  timelineOffsetPx,
   WARNING_DRINK_CONCENTRATION,
   WARNING_NO_UNIT_FITS,
   validateNutritionInputs,
@@ -434,5 +439,46 @@ describe("buildNutritionTimeline — exemple 3", () => {
       carbsG: 0,
       sodiumMg: 0,
     });
+  });
+});
+
+describe("plafond hydrique et axe vertical", () => {
+  it("expose les constantes de la timeline verticale", () => {
+    expect(HYDRATION_CAP_ML_PER_HOUR).toBe(750);
+    expect(HYDRATION_CAP_RECOMMENDED).toEqual({ min: 400, max: 800 });
+    expect(TIMELINE_PX_PER_10_MIN).toBe(20);
+  });
+
+  it("convertit une minute en pixels d'axe (exemple 3)", () => {
+    expect(timelineOffsetPx(0)).toBe(0);
+    expect(timelineOffsetPx(10)).toBe(20);
+    expect(timelineOffsetPx(120)).toBe(240);
+  });
+
+  it("calcule le débit de boisson en ml/h (exemple 4)", () => {
+    const plan = computeNutritionPlan(formValues({ drinkEnabled: true }));
+    expect(plan).not.toBeNull();
+    if (!plan) return;
+
+    expect(plan.drink?.volumeMl).toBeCloseTo(1200, 6);
+    expect(computeHydrationRate(plan, 120)).toBeCloseTo(600, 6);
+  });
+
+  it("ne compte aucune eau sans boisson ou sans durée", () => {
+    const withoutDrink = computeNutritionPlan(formValues());
+    expect(withoutDrink).not.toBeNull();
+    if (!withoutDrink) return;
+    expect(computeHydrationRate(withoutDrink, 120)).toBe(0);
+
+    const withDrink = computeNutritionPlan(formValues({ drinkEnabled: true }));
+    expect(withDrink).not.toBeNull();
+    if (!withDrink) return;
+    expect(computeHydrationRate(withDrink, 0)).toBe(0);
+  });
+
+  it("signale un dépassement hydrique avec le plafond de 750 ml/h", () => {
+    const usage = computeCapUsage(900, HYDRATION_CAP_ML_PER_HOUR);
+    expect(usage.ratio).toBeCloseTo(1.2, 6);
+    expect(usage.exceeded).toBe(true);
   });
 });

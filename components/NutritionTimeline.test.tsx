@@ -1,16 +1,12 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import NutritionTimeline from "@/components/NutritionTimeline";
-import {
-  buildNutritionTimeline,
-  computeNutritionPlan,
-  type NutritionFormValues,
-} from "@/lib/nutrition";
+import { computeNutritionPlan, type NutritionFormValues } from "@/lib/nutrition";
 
-/** Barre de référence (25 g de glucides, 0,25 g de sel) sur 120 min. */
-function timelineFor(overrides: Partial<NutritionFormValues> = {}) {
-  const values: NutritionFormValues = {
+/** Barre de référence : 25 g de glucides, 0,25 g de sel, 200 kcal, 60 g. */
+function formValues(overrides: Partial<NutritionFormValues> = {}): NutritionFormValues {
+  return {
     carbCap: "60",
     sodiumCap: "600",
     minutes: "120",
@@ -30,73 +26,111 @@ function timelineFor(overrides: Partial<NutritionFormValues> = {}) {
     drinkSaltPer100: "3",
     ...overrides,
   };
+}
+
+function setup(overrides: Partial<NutritionFormValues> = {}) {
+  const values = formValues(overrides);
   const plan = computeNutritionPlan(values);
   if (!plan) {
     throw new Error("valeurs de test invalides");
   }
-  return buildNutritionTimeline(values, plan);
+  return { values, plan };
 }
 
 describe("NutritionTimeline", () => {
-  it("expose un graphe accessible qui résume les prises et le plafond", () => {
-    const timeline = timelineFor({ drinkEnabled: true });
+  it("résume les barres et la boisson (exemple 2)", () => {
+    const { values, plan } = setup({ drinkEnabled: true });
 
-    render(<NutritionTimeline timeline={timeline} />);
+    render(<NutritionTimeline values={values} plan={plan} />);
 
-    const graphic = screen.getByTestId("nutrition-timeline");
-    expect(graphic).toHaveAttribute("role", "img");
-
-    const label = graphic.getAttribute("aria-label") ?? "";
-    expect(label).toContain("3 prises solides");
-    expect(label).toContain("8 gorgées");
-    expect(label).toContain("120 min");
-    expect(label).toContain("111 g de glucides");
-    expect(label).toContain("plafond de 120 g");
+    expect(screen.getByTestId("timeline-recap-solid")).toHaveTextContent("3 barres");
+    expect(screen.getByTestId("timeline-recap-drink")).toHaveTextContent("1200 ml de boisson");
+    expect(screen.getAllByTestId("timeline-solid")).toHaveLength(3);
+    expect(screen.getAllByTestId("timeline-drink")).toHaveLength(8);
   });
 
-  it("affiche autant de marqueurs que d'événements", () => {
-    const timeline = timelineFor({ drinkEnabled: true });
+  it("n'affiche que le solide quand il n'y a pas de boisson (exemple 1)", () => {
+    const { values, plan } = setup();
 
-    render(<NutritionTimeline timeline={timeline} />);
+    render(<NutritionTimeline values={values} plan={plan} />);
 
-    expect(screen.getAllByTestId("timeline-marker")).toHaveLength(timeline.events.length);
+    expect(screen.getByTestId("timeline-recap-solid")).toHaveTextContent("4 barres");
+    expect(screen.queryByTestId("timeline-recap-drink")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("timeline-solid")).toHaveLength(4);
+    expect(screen.queryAllByTestId("timeline-drink")).toHaveLength(0);
   });
 
-  it("empile les deux graphes avec la droite de plafond et la légende", () => {
-    const timeline = timelineFor();
+  it("place chaque prise à sa minute sur un axe de 240 px (exemple 2)", () => {
+    const { values, plan } = setup({ drinkEnabled: true });
 
-    render(<NutritionTimeline timeline={timeline} />);
+    render(<NutritionTimeline values={values} plan={plan} />);
 
-    expect(screen.getAllByTestId("timeline-graph")).toHaveLength(2);
-    expect(screen.getAllByTestId("timeline-cap-line")).toHaveLength(2);
-    expect(screen.getByText("Plafond")).toBeInTheDocument();
-    expect(screen.getByText("Prises solides")).toBeInTheDocument();
-    expect(screen.getByText("Gorgées de boisson")).toBeInTheDocument();
+    expect(screen.getByTestId("timeline-axis")).toHaveStyle({ height: "240px" });
+
+    const solids = screen.getAllByTestId("timeline-solid");
+    expect(solids.map((node) => node.style.top)).toEqual(["40px", "120px", "200px"]);
+    expect(solids[0]).toHaveTextContent("20 min");
+
+    const drinks = screen.getAllByTestId("timeline-drink");
+    expect(drinks.map((node) => node.style.top)).toEqual([
+      "30px",
+      "60px",
+      "90px",
+      "120px",
+      "150px",
+      "180px",
+      "210px",
+      "240px",
+    ]);
+    expect(drinks[0]).toHaveTextContent("15 min");
+    expect(drinks[0]).toHaveTextContent("150 ml");
   });
 
-  it("grade l'axe des minutes par pas de 30 min sur 120 min", () => {
-    const timeline = timelineFor();
+  it("trace une ligne de 10 px arrondie, sans indication de temps", () => {
+    const { values, plan } = setup();
 
-    render(<NutritionTimeline timeline={timeline} />);
+    render(<NutritionTimeline values={values} plan={plan} />);
 
-    const graph = screen.getAllByTestId("timeline-graph")[0];
-    expect(
-      within(graph)
-        .getAllByTestId("timeline-tick-x")
-        .map((node) => node.textContent),
-    ).toEqual(["0", "30", "60", "90", "120"]);
+    const line = screen.getByTestId("timeline-line");
+    expect(line).toHaveClass("w-[10px]", "rounded-[3px]");
+    expect(screen.queryByTestId("timeline-tick")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("timeline-tick-label")).not.toBeInTheDocument();
+    expect(screen.queryByText("0 min")).not.toBeInTheDocument();
   });
 
-  it("grade l'axe des minutes par pas de 15 min sur 60 min", () => {
-    const timeline = timelineFor({ minutes: "60" });
+  it("adapte la hauteur de l'axe à une durée courte", () => {
+    const { values, plan } = setup({ minutes: "30" });
 
-    render(<NutritionTimeline timeline={timeline} />);
+    render(<NutritionTimeline values={values} plan={plan} />);
 
-    const graph = screen.getAllByTestId("timeline-graph")[0];
-    expect(
-      within(graph)
-        .getAllByTestId("timeline-tick-x")
-        .map((node) => node.textContent),
-    ).toEqual(["0", "15", "30", "45", "60"]);
+    expect(screen.getByTestId("timeline-axis")).toHaveStyle({ height: "60px" });
+  });
+
+  it("étend l'axe pour une durée longue", () => {
+    const { values, plan } = setup({ minutes: "360" });
+
+    render(<NutritionTimeline values={values} plan={plan} />);
+
+    expect(screen.getByTestId("timeline-axis")).toHaveStyle({ height: "720px" });
+  });
+
+  it("nomme le solide selon le type de produit", () => {
+    const { values, plan } = setup({ productType: "Gel" });
+
+    render(<NutritionTimeline values={values} plan={plan} />);
+
+    expect(screen.getByTestId("timeline-recap-solid")).toHaveTextContent("4 gels");
+  });
+
+  it("expose un résumé accessible", () => {
+    const { values, plan } = setup({ drinkEnabled: true });
+
+    render(<NutritionTimeline values={values} plan={plan} />);
+
+    const timeline = screen.getByTestId("nutrition-timeline");
+    expect(timeline).toHaveAttribute("role", "img");
+    expect(timeline.getAttribute("aria-label")).toContain(
+      "3 prises solides et 8 gorgées sur 120 min, 1200 ml de boisson",
+    );
   });
 });

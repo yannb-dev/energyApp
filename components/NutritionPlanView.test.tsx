@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -6,6 +6,9 @@ import NutritionPlanView from "@/components/NutritionPlanView";
 import { NUTRITION_STORAGE_KEY } from "@/lib/nutritionStorage";
 
 const navigation = vi.hoisted(() => ({ search: new URLSearchParams() }));
+
+/** Force le débit d'eau pour éprouver le dépassement du plafond hydrique. */
+const water = vi.hoisted(() => ({ override: null as number | null }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -19,6 +22,17 @@ vi.mock("next/link", () => ({
     </a>
   ),
 }));
+
+vi.mock("@/lib/nutrition", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/nutrition")>();
+  return {
+    ...actual,
+    computeHydrationRate: (
+      plan: Parameters<typeof actual.computeHydrationRate>[0],
+      minutes: number,
+    ) => water.override ?? actual.computeHydrationRate(plan, minutes),
+  };
+});
 
 const STORED_PRODUCT = {
   carbCap: "60",
@@ -50,6 +64,7 @@ describe("NutritionPlanView", () => {
   beforeEach(() => {
     window.localStorage.clear();
     navigation.search = new URLSearchParams("min=120");
+    water.override = null;
   });
 
   it("affiche le rappel, les résultats, les plafonds et la timeline", async () => {
@@ -66,22 +81,73 @@ describe("NutritionPlanView", () => {
     expect(screen.getByTestId("nutrition-rate-sodium")).toHaveTextContent("438");
     expect(screen.queryByTestId("nutrition-warning")).not.toBeInTheDocument();
 
-    expect(screen.getByText("120 min")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Rappel" })).getByText("120 min"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Barre endurance · Barre")).toBeInTheDocument();
     expect(screen.getByText("Boisson énergétique · 40 g/L")).toBeInTheDocument();
 
     expect(screen.getByTestId("nutrition-cap-carbs")).toHaveTextContent("Glucides : 55,5 / 60 g/h");
     expect(screen.getByTestId("nutrition-cap-sodium")).toHaveTextContent("Sodium : 438 / 600 mg/h");
+    expect(screen.getByTestId("nutrition-cap-water")).toHaveTextContent("Eau : 600 / 750 ml/h");
+    expect(screen.getByText("Repère usuel : 400 à 800 ml/h")).toBeInTheDocument();
     expect(screen.getByRole("progressbar", { name: "Glucides par heure" })).toBeInTheDocument();
     expect(screen.getByRole("progressbar", { name: "Sodium par heure" })).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Boisson par heure" })).toBeInTheDocument();
 
     expect(screen.getByTestId("nutrition-timeline")).toBeInTheDocument();
+    expect(screen.getByTestId("timeline-recap-solid")).toHaveTextContent("3 barres");
     expect(
       screen.getByRole("link", { name: "Modifier mes données" }),
     ).toHaveAttribute("href", "/?min=120");
     expect(
       screen.getByText(/Repères généraux, à adapter avec un professionnel de santé/i),
     ).toBeInTheDocument();
+  });
+
+  it("présente le solide et le liquide dans deux colonnes de la même grille", async () => {
+    store({ drinkEnabled: true });
+
+    render(<NutritionPlanView />);
+
+    const solid = await screen.findByTestId("nutrition-result-solid");
+    const liquid = screen.getByTestId("nutrition-result-liquid");
+
+    expect(solid).toHaveTextContent("Solide");
+    expect(solid).toContainElement(screen.getByTestId("nutrition-units"));
+    expect(solid).toContainElement(screen.getByTestId("nutrition-interval"));
+
+    expect(liquid).toHaveTextContent("Liquide");
+    expect(liquid).toContainElement(screen.getByTestId("nutrition-drink-volume"));
+    expect(liquid).toHaveTextContent(/1200 ml/);
+    expect(liquid).toHaveTextContent(/8 prises/);
+    expect(liquid).toHaveTextContent(/48,0 g de poudre/);
+
+    const grid = solid.parentElement;
+    expect(grid).toBe(liquid.parentElement);
+    expect(grid).toHaveClass("grid", "grid-cols-2", "gap-2");
+  });
+
+  it("affiche « Aucune boisson » et une jauge d'eau vide sans boisson", async () => {
+    store();
+
+    render(<NutritionPlanView />);
+
+    const liquid = await screen.findByTestId("nutrition-result-liquid");
+    expect(liquid).toHaveTextContent("Aucune boisson");
+    expect(screen.getByTestId("nutrition-cap-water")).toHaveTextContent("Eau : 0 / 750 ml/h");
+    expect(screen.getByTestId("nutrition-cap-water")).not.toHaveClass("text-danger");
+  });
+
+  it("place la jauge d'eau sous la jauge sodium", async () => {
+    store({ drinkEnabled: true });
+
+    render(<NutritionPlanView />);
+
+    const sodium = await screen.findByTestId("nutrition-cap-sodium");
+    const waterGauge = screen.getByTestId("nutrition-cap-water");
+
+    expect(sodium.compareDocumentPosition(waterGauge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("passe les plafonds en danger quand ils sont dépassés", async () => {
@@ -95,9 +161,22 @@ describe("NutritionPlanView", () => {
     expect(carbs).toHaveClass("text-danger");
     expect(screen.getByRole("progressbar", { name: "Glucides par heure" })).toHaveClass("bg-danger");
     expect(screen.getByTestId("nutrition-cap-sodium")).not.toHaveClass("text-danger");
+    expect(screen.getByTestId("nutrition-cap-water")).not.toHaveClass("text-danger");
     expect(screen.getByTestId("nutrition-warning")).toHaveTextContent(
       "Réduis la concentration de la boisson.",
     );
+  });
+
+  it("passe la jauge d'eau en danger en cas de dépassement", async () => {
+    water.override = 900;
+    store({ drinkEnabled: true });
+
+    render(<NutritionPlanView />);
+
+    const gauge = await screen.findByTestId("nutrition-cap-water");
+    expect(gauge).toHaveTextContent("Eau : 900 / 750 ml/h");
+    expect(gauge).toHaveClass("text-danger");
+    expect(screen.getByRole("progressbar", { name: "Boisson par heure" })).toHaveClass("bg-danger");
   });
 
   it("affiche « Données introuvables » sans stockage", async () => {

@@ -28,8 +28,10 @@ const EMPTY_VALUES: EnergyFormValues = {
   minutes: "",
 };
 
-const CARD = "rounded-2xl border border-line bg-surface p-4 shadow-lg shadow-canvas/60 sm:p-5";
-const CARD_TITLE = "mb-3 text-sm font-semibold uppercase tracking-wide text-muted";
+const CARD =
+  "rounded-2xl border border-line bg-surface p-4 shadow-lg shadow-canvas/60 sm:p-5";
+const CARD_TITLE =
+  "mb-3 text-sm font-semibold uppercase tracking-wide text-muted";
 const FIELD_LABEL = "mb-1 block text-sm font-medium text-ink";
 const FIELD =
   "h-11 w-full rounded-xl border border-line bg-surface-2 px-3 text-base text-ink outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent-strong aria-invalid:border-danger";
@@ -106,7 +108,10 @@ export default function EnergyCalculator({
   return (
     <div className="flex flex-col gap-4">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <section className={`animate-rise ${CARD}`} aria-labelledby="titre-parametres">
+        <section
+          className={`animate-rise ${CARD}`}
+          aria-labelledby="titre-parametres"
+        >
           <h2 id="titre-parametres" className={CARD_TITLE}>
             Paramètres
           </h2>
@@ -122,7 +127,9 @@ export default function EnergyCalculator({
                   name="sexe"
                   value="male"
                   checked={values.sex === "male"}
-                  onChange={() => setValues((current) => ({ ...current, sex: "male" }))}
+                  onChange={() =>
+                    setValues((current) => ({ ...current, sex: "male" }))
+                  }
                   className="peer sr-only"
                 />
                 <label htmlFor="sexe-homme" className={CHIP}>
@@ -136,7 +143,9 @@ export default function EnergyCalculator({
                   name="sexe"
                   value="female"
                   checked={values.sex === "female"}
-                  onChange={() => setValues((current) => ({ ...current, sex: "female" }))}
+                  onChange={() =>
+                    setValues((current) => ({ ...current, sex: "female" }))
+                  }
                   className="peer sr-only"
                 />
                 <label htmlFor="sexe-femme" className={CHIP}>
@@ -165,14 +174,21 @@ export default function EnergyCalculator({
                 step={1}
                 value={values.age}
                 onChange={(event) =>
-                  setValues((current) => ({ ...current, age: event.target.value }))
+                  setValues((current) => ({
+                    ...current,
+                    age: event.target.value,
+                  }))
                 }
                 aria-invalid={ageError ? true : undefined}
                 aria-describedby={ageError ? "erreur-age" : undefined}
                 className={FIELD}
               />
               {ageError ? (
-                <p id="erreur-age" role="alert" className="mt-1 text-sm text-danger">
+                <p
+                  id="erreur-age"
+                  role="alert"
+                  className="mt-1 text-sm text-danger"
+                >
                   {ageError}
                 </p>
               ) : null}
@@ -191,14 +207,21 @@ export default function EnergyCalculator({
                 step={0.1}
                 value={values.weightKg}
                 onChange={(event) =>
-                  setValues((current) => ({ ...current, weightKg: event.target.value }))
+                  setValues((current) => ({
+                    ...current,
+                    weightKg: event.target.value,
+                  }))
                 }
                 aria-invalid={weightError ? true : undefined}
                 aria-describedby={weightError ? "erreur-poids" : undefined}
                 className={FIELD}
               />
               {weightError ? (
-                <p id="erreur-poids" role="alert" className="mt-1 text-sm text-danger">
+                <p
+                  id="erreur-poids"
+                  role="alert"
+                  className="mt-1 text-sm text-danger"
+                >
                   {weightError}
                 </p>
               ) : null}
@@ -217,14 +240,21 @@ export default function EnergyCalculator({
                 step={0.1}
                 value={values.heightCm}
                 onChange={(event) =>
-                  setValues((current) => ({ ...current, heightCm: event.target.value }))
+                  setValues((current) => ({
+                    ...current,
+                    heightCm: event.target.value,
+                  }))
                 }
                 aria-invalid={heightError ? true : undefined}
                 aria-describedby={heightError ? "erreur-taille" : undefined}
                 className={FIELD}
               />
               {heightError ? (
-                <p id="erreur-taille" role="alert" className="mt-1 text-sm text-danger">
+                <p
+                  id="erreur-taille"
+                  role="alert"
+                  className="mt-1 text-sm text-danger"
+                >
                   {heightError}
                 </p>
               ) : null}
@@ -233,7 +263,7 @@ export default function EnergyCalculator({
 
           <div className="mt-3">
             <label htmlFor="activite" className={FIELD_LABEL}>
-              Niveau d&apos;activité
+              Niveau d&apos;activité physique
             </label>
             <input
               id="activite"
@@ -248,7 +278,10 @@ export default function EnergyCalculator({
             />
             <p className="mt-1 text-sm text-muted">
               Niveau retenu :{" "}
-              <span data-testid="activity-label" className="font-semibold text-accent">
+              <span
+                data-testid="activity-label"
+                className="font-semibold text-accent"
+              >
                 {activity.label}
               </span>
             </p>
@@ -258,7 +291,9 @@ export default function EnergyCalculator({
                   key={level.label}
                   data-testid="activity-level"
                   className={
-                    level.label === activity.label ? "font-semibold text-ink" : "text-muted"
+                    level.label === activity.label
+                      ? "font-semibold text-ink"
+                      : "text-muted"
                   }
                 >
                   {level.label}
@@ -268,7 +303,10 @@ export default function EnergyCalculator({
           </div>
         </section>
 
-        <section className={`animate-rise rise-delay-1 ${CARD}`} aria-labelledby="titre-activite">
+        <section
+          className={`animate-rise rise-delay-1 ${CARD}`}
+          aria-labelledby="titre-activite"
+        >
           <h2 id="titre-activite" className={CARD_TITLE}>
             Activité
           </h2>
@@ -282,7 +320,10 @@ export default function EnergyCalculator({
                 id="sport"
                 value={values.sportId}
                 onChange={(event) =>
-                  setValues((current) => ({ ...current, sportId: event.target.value }))
+                  setValues((current) => ({
+                    ...current,
+                    sportId: event.target.value,
+                  }))
                 }
                 aria-invalid={sportError ? true : undefined}
                 aria-describedby={sportError ? "erreur-sport" : undefined}
@@ -311,7 +352,11 @@ export default function EnergyCalculator({
               </svg>
             </div>
             {sportError ? (
-              <p id="erreur-sport" role="alert" className="mt-1 text-sm text-danger">
+              <p
+                id="erreur-sport"
+                role="alert"
+                className="mt-1 text-sm text-danger"
+              >
                 {sportError}
               </p>
             ) : null}
@@ -339,7 +384,11 @@ export default function EnergyCalculator({
               className={FIELD}
             />
             {minutesError ? (
-              <p id="erreur-duree" role="alert" className="mt-1 text-sm text-danger">
+              <p
+                id="erreur-duree"
+                role="alert"
+                className="mt-1 text-sm text-danger"
+              >
                 {minutesError}
               </p>
             ) : null}
@@ -376,8 +425,12 @@ export default function EnergyCalculator({
             <div>
               <p className="text-sm text-muted">Coût de l&apos;effort</p>
               <p className="text-4xl font-bold leading-tight text-effort">
-                <span data-testid="effort-kcal">{Math.round(results.effortKcal)}</span>
-                <span className="ml-1 text-base font-medium text-muted">kcal</span>
+                <span data-testid="effort-kcal">
+                  {Math.round(results.effortKcal)}
+                </span>
+                <span className="ml-1 text-base font-medium text-muted">
+                  kcal
+                </span>
               </p>
             </div>
 
@@ -386,20 +439,26 @@ export default function EnergyCalculator({
                 <p className="text-xs text-muted">Dépense journalière</p>
                 <p className="text-lg font-semibold text-ink">
                   <span data-testid="tdee">{Math.round(results.tdee)}</span>
-                  <span className="ml-1 text-xs font-normal text-muted">kcal</span>
+                  <span className="ml-1 text-xs font-normal text-muted">
+                    kcal
+                  </span>
                 </p>
               </div>
               <div className={TILE}>
                 <p className="text-xs text-muted">Métabolisme de base</p>
                 <p className="text-lg font-semibold text-ink">
                   <span data-testid="bmr">{Math.round(results.bmr)}</span>
-                  <span className="ml-1 text-xs font-normal text-muted">kcal</span>
+                  <span className="ml-1 text-xs font-normal text-muted">
+                    kcal
+                  </span>
                 </p>
               </div>
               <div className={TILE}>
                 <p className="text-xs text-muted">Part de l&apos;effort</p>
                 <p className="text-lg font-semibold text-ink">
-                  <span data-testid="effort-share">{Math.round(results.effortShare)}</span>
+                  <span data-testid="effort-share">
+                    {Math.round(results.effortShare)}
+                  </span>
                   <span className="ml-1 text-xs font-normal text-muted">%</span>
                 </p>
               </div>

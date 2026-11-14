@@ -42,6 +42,13 @@ export const SODIUM_MG_PER_GRAM_SALT = 400;
 export const DRINK_SERVING_ML = 150;
 export const DRINK_INTERVAL_MINUTES = 15;
 
+/** Plafond hydrique : constante de l'application, jamais saisie ni stockée. */
+export const HYDRATION_CAP_ML_PER_HOUR = 750;
+export const HYDRATION_CAP_RECOMMENDED = { min: 400, max: 800 };
+
+/** Échelle de la timeline verticale : 20 px par tranche de 10 min. */
+export const TIMELINE_PX_PER_10_MIN = 20;
+
 export const WARNING_DRINK_CONCENTRATION = "Réduis la concentration de la boisson.";
 export const WARNING_NO_UNIT_FITS = "Une unité dépasserait le plafond.";
 
@@ -463,4 +470,17 @@ export function buildNutritionTimeline(
       },
     },
   };
+}
+
+/** Débit de boisson en ml/h ; 0 sans boisson ou sans durée. */
+export function computeHydrationRate(plan: NutritionPlan, minutes: number): number {
+  if (!plan.drink || minutes <= 0) {
+    return 0;
+  }
+  return plan.drink.volumeMl / (minutes / 60);
+}
+
+/** Position verticale d'une minute sur l'axe de la timeline, en pixels. */
+export function timelineOffsetPx(minute: number): number {
+  return (minute / 10) * TIMELINE_PX_PER_10_MIN;
 }

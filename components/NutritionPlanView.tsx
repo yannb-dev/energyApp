@@ -4,13 +4,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+import { EnergyBarIcon, FlaskIcon } from "@/components/NutritionIcons";
 import NutritionTimeline from "@/components/NutritionTimeline";
 import { parseDecimal } from "@/lib/energy";
 import {
   buildNutritionTimeline,
   computeCapUsage,
+  computeHydrationRate,
   computeNutritionPlan,
   DEFAULT_NUTRITION_VALUES,
+  HYDRATION_CAP_ML_PER_HOUR,
+  HYDRATION_CAP_RECOMMENDED,
   MINUTES_MAX,
   MINUTES_MIN,
   type NutritionFormValues,
@@ -159,6 +163,8 @@ export default function NutritionPlanView() {
   const sodiumCap = parseDecimal(values.sodiumCap) ?? 0;
   const carbsUsage = computeCapUsage(plan.rates.carbsGPerHour, carbCap);
   const sodiumUsage = computeCapUsage(plan.rates.sodiumMgPerHour, sodiumCap);
+  const waterRate = computeHydrationRate(plan, timeline.minutes);
+  const waterUsage = computeCapUsage(waterRate, HYDRATION_CAP_ML_PER_HOUR);
 
   return (
     <div className="flex flex-col gap-4">
@@ -208,41 +214,60 @@ export default function NutritionPlanView() {
         </h2>
 
         <div data-testid="nutrition-results" className="space-y-4">
-          <div>
-            <p className="text-sm text-muted">Unités solides à prendre</p>
-            <p className="text-4xl font-bold leading-tight text-effort">
-              <span data-testid="nutrition-units">{integer(plan.units)}</span>
-              <span className="ml-1 text-base font-medium text-muted">
-                {plan.units > 1 ? "unités" : "unité"}
-              </span>
-            </p>
-            {plan.intervalMinutes !== null ? (
-              <p className="text-sm text-muted">
-                Une prise toutes les{" "}
-                <span data-testid="nutrition-interval">
-                  {integer(plan.intervalMinutes)}
-                </span>{" "}
-                min
+          <div className="grid grid-cols-2 gap-2">
+            <div data-testid="nutrition-result-solid" className={TILE}>
+              <div className="flex items-center gap-1.5">
+                <EnergyBarIcon />
+                <p className="text-xs text-muted">Solide</p>
+              </div>
+              <p className="mt-1 text-4xl font-bold leading-tight text-effort">
+                <span data-testid="nutrition-units">{integer(plan.units)}</span>
+                <span className="ml-1 text-base font-medium text-muted">
+                  {plan.units > 1 ? "unités" : "unité"}
+                </span>
               </p>
-            ) : null}
-            <p className="text-xs text-muted">
-              Facteur limitant :{" "}
-              {plan.limitingFactor === "carbs" ? "glucides" : "sodium"}
-            </p>
+              {plan.intervalMinutes !== null ? (
+                <p className="text-xs text-muted">
+                  Une prise toutes les{" "}
+                  <span data-testid="nutrition-interval">
+                    {integer(plan.intervalMinutes)}
+                  </span>{" "}
+                  min
+                </p>
+              ) : null}
+            </div>
+
+            <div data-testid="nutrition-result-liquid" className={TILE}>
+              <div className="flex items-center gap-1.5">
+                <FlaskIcon />
+                <p className="text-xs text-muted">Liquide</p>
+              </div>
+              {plan.drink ? (
+                <>
+                  <p className="mt-1 text-4xl font-bold leading-tight text-effort">
+                    <span data-testid="nutrition-drink-volume">
+                      {integer(plan.drink.volumeMl)}
+                    </span>
+                    <span className="ml-1 text-base font-medium text-muted">
+                      {" "}
+                      ml
+                    </span>
+                  </p>
+                  <p className="text-xs text-muted">
+                    {plan.drink.servings} prises · {decimal(plan.drink.powderG)}{" "}
+                    g de poudre
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-sm text-muted">Aucune boisson</p>
+              )}
+            </div>
           </div>
 
-          {plan.drink ? (
-            <div className={TILE}>
-              <p className="text-sm text-effort">Boisson</p>
-              <p className="text-sm text-ink">
-                <span data-testid="nutrition-drink-volume">
-                  {integer(plan.drink.volumeMl)}
-                </span>{" "}
-                ml en {plan.drink.servings} prises ·{" "}
-                {decimal(plan.drink.powderG)} g de poudre
-              </p>
-            </div>
-          ) : null}
+          <p className="text-xs text-muted">
+            Facteur limitant :{" "}
+            {plan.limitingFactor === "carbs" ? "glucides" : "sodium"}
+          </p>
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div className={TILE}>
@@ -324,6 +349,21 @@ export default function NutritionPlanView() {
             ratio={sodiumUsage.ratio}
             exceeded={sodiumUsage.exceeded}
           />
+          <div>
+            <CapGauge
+              testId="nutrition-cap-water"
+              label="Boisson par heure"
+              text={`Eau : ${integer(waterRate)}ml`}
+              used={waterRate}
+              cap={HYDRATION_CAP_ML_PER_HOUR}
+              ratio={waterUsage.ratio}
+              exceeded={waterUsage.exceeded}
+            />
+            <p className="mt-1 text-xs text-muted">
+              Repère usuel : {HYDRATION_CAP_RECOMMENDED.min} à{" "}
+              {HYDRATION_CAP_RECOMMENDED.max} ml/h
+            </p>
+          </div>
         </div>
       </section>
 
@@ -334,7 +374,7 @@ export default function NutritionPlanView() {
         <h2 id="titre-timeline" className={CARD_TITLE}>
           Timeline
         </h2>
-        <NutritionTimeline timeline={timeline} />
+        <NutritionTimeline values={values} plan={plan} />
       </section>
 
       <p className="text-xs text-muted">
