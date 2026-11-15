@@ -197,8 +197,8 @@ export default function NutritionPlanView() {
             <div className="flex justify-between gap-3">
               <dt className="text-muted">Boisson</dt>
               <dd className="text-right text-ink">
-                {values.drinkName} · {frenchNumber(values.drinkConcentration)}{" "}
-                g/L
+                {values.drinkName} · Dosage{" "}
+                {frenchNumber(values.drinkConcentration)} g/L
               </dd>
             </div>
           ) : null}
@@ -353,7 +353,7 @@ export default function NutritionPlanView() {
             <CapGauge
               testId="nutrition-cap-water"
               label="Boisson par heure"
-              text={`Eau : ${integer(waterRate)}ml`}
+              text={`Eau : ${integer(waterRate)}ml/h`}
               used={waterRate}
               cap={HYDRATION_CAP_ML_PER_HOUR}
               ratio={waterUsage.ratio}

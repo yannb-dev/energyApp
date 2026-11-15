@@ -276,16 +276,7 @@ export default function EnergyCalculator({
               aria-valuetext={activity.label}
               className="h-11 w-full cursor-pointer accent-accent focus-visible:ring-2 focus-visible:ring-accent-strong"
             />
-            <p className="mt-1 text-sm text-muted">
-              Niveau retenu :{" "}
-              <span
-                data-testid="activity-label"
-                className="font-semibold text-accent"
-              >
-                {activity.label}
-              </span>
-            </p>
-            <div className="mt-1 flex justify-between gap-1 text-xs text-muted">
+            <div className="flex justify-between gap-1 text-xs text-muted">
               {ACTIVITY_LEVELS.map((level) => (
                 <span
                   key={level.label}
@@ -300,6 +291,17 @@ export default function EnergyCalculator({
                 </span>
               ))}
             </div>
+            <p className="mt-4 text-sm text-muted">
+              <span
+                data-testid="activity-label"
+                className="font-semibold text-accent"
+              >
+                {activity.label}
+              </span>{" "}
+              <span data-testid="activity-label" className=" text-muted">
+                {activity.detail}
+              </span>
+            </p>
           </div>
         </section>
 
