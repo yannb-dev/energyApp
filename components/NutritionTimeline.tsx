@@ -19,9 +19,11 @@ function plural(count: number, one: string, many: string): string {
   return count > 1 ? many : one;
 }
 
-function formatMinute(minute: number): string {
-  return String(Math.round(minute));
-}
+const formatMinutes = (min: number) => {
+  const h = Math.floor(min / 60);
+  const m = Math.floor(min % 60);
+  return `${h}h${String(m).padStart(2, "0")}`;
+};
 
 type NutritionTimelineProps = {
   values: NutritionFormValues;
@@ -66,7 +68,7 @@ export default function NutritionTimeline({
             className="flex items-center gap-1.5 font-medium text-ink"
           >
             <FlaskIcon />
-            {volumeMl} ml de boisson
+            {volumeMl} ml de boisson énergétique
           </li>
         ) : null}
       </ul>
@@ -86,7 +88,7 @@ export default function NutritionTimeline({
                 style={{ top: `${timelineOffsetPx(event.minute)}px` }}
               >
                 <span className="text-xs text-muted">
-                  {formatMinute(event.minute)} min
+                  {formatMinutes(event.minute)} min
                 </span>
                 <EnergyBarIcon className="h-6 w-6 shrink-0 text-accent" />
               </div>
@@ -109,7 +111,7 @@ export default function NutritionTimeline({
               >
                 <FlaskIcon className="h-6 w-6 shrink-0 text-accent" />
                 <span className="text-xs text-muted">
-                  {formatMinute(event.minute)} min
+                  {formatMinutes(event.minute)} min
                 </span>
                 <span className="text-xs text-muted">
                   {DRINK_SERVING_ML} ml

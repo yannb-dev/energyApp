@@ -4,14 +4,35 @@ export type ActivityLevel = {
   label: string;
   /** Multiplicateur appliqué au métabolisme de base. */
   coefficient: number;
+  detail: string;
 };
 
 export const ACTIVITY_LEVELS: readonly ActivityLevel[] = [
-  { label: "Sédentaire", coefficient: 1.2 },
-  { label: "Léger", coefficient: 1.375 },
-  { label: "Modéré", coefficient: 1.55 },
-  { label: "Actif", coefficient: 1.725 },
-  { label: "Très actif", coefficient: 1.9 },
+  {
+    label: "Sédentaire",
+    coefficient: 1.2,
+    detail: "Peu ou pas d'exercice, travail de bureau et déplacements limités.",
+  },
+  {
+    label: "Léger",
+    coefficient: 1.375,
+    detail: "Activité légère 1 à 3 fois par semaine (marche, sport doux).",
+  },
+  {
+    label: "Modéré",
+    coefficient: 1.55,
+    detail: "Exercice régulier 3 à 5 fois par semaine.",
+  },
+  {
+    label: "Actif",
+    coefficient: 1.725,
+    detail: "Entraînement intense 6 à 7 fois par semaine.",
+  },
+  {
+    label: "Très actif",
+    coefficient: 1.9,
+    detail: "Sport intensif quotidien ou travail physique exigeant.",
+  },
 ];
 
 /** Palier par défaut du slider : Léger. */
@@ -64,7 +85,12 @@ export function parseDecimal(raw: string): number | null {
 }
 
 /** BMR selon Mifflin-St Jeor, sans arrondi. */
-export function computeBmr({ sex, age, weightKg, heightCm }: BmrProfile): number {
+export function computeBmr({
+  sex,
+  age,
+  weightKg,
+  heightCm,
+}: BmrProfile): number {
   const base = 10 * weightKg + 6.25 * heightCm - 5 * age;
   return sex === "male" ? base + 5 : base - 161;
 }
@@ -75,7 +101,11 @@ export function computeTdee(bmr: number, activityCoefficient: number): number {
 }
 
 /** kcal brûlées par l'effort, sans arrondi. */
-export function computeEffortKcal(met: number, weightKg: number, minutes: number): number {
+export function computeEffortKcal(
+  met: number,
+  weightKg: number,
+  minutes: number,
+): number {
   return met * weightKg * (minutes / 60);
 }
 

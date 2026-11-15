@@ -8,16 +8,24 @@ export type Sport = {
 
 /** Sports d'endurance, MET issus du Compendium of Physical Activities. */
 export const SPORTS: readonly Sport[] = [
-  { id: "marche-rapide", label: "Marche rapide", met: 4.3 },
-  { id: "course-8", label: "Course 8 km/h", met: 8.3 },
-  { id: "course-10", label: "Course 10 km/h", met: 9.8 },
-  { id: "ski-randonnée", label: "Ski Randonnée", met: 10 },
-  { id: "velo-route-soutenu", label: "Vélo route soutenu", met: 10 },
-  { id: "natation-crawl-moderee", label: "Natation crawl modérée", met: 5.8 },
-  { id: "natation-crawl-rapide", label: "Natation crawl rapide", met: 9.8 },
-  { id: "aviron-modere", label: "Aviron modéré", met: 7 },
-  { id: "randonnee", label: "Randonnée", met: 6 },
-  { id: "ski-fond", label: "Ski de fond", met: 9 },
+  {
+    id: "velo-route-vtt-modere",
+    label: "Vélo de route - VTT (modéré)",
+    met: 8,
+  },
+  {
+    id: "velo-route-vtt-intense",
+    label: "Vélo de route - VTT (intense)",
+    met: 10,
+  },
+  { id: "course-modere", label: "Course à pied (modéré)", met: 8.3 },
+  { id: "course-intense", label: "Course à pied (intense)", met: 9.8 },
+  { id: "trail-modere", label: "Trail (modéré)", met: 9 },
+  { id: "trail-intense", label: "Trail (intense)", met: 11 },
+  { id: "ski-rando-modere", label: "Ski de randonnée (modéré)", met: 7 },
+  { id: "ski-rando-intense", label: "Ski de randonnée (intense)", met: 10 },
+  { id: "randonnee-modere", label: "Randonnée (modéré)", met: 6 },
+  { id: "randonnee-intense", label: "Randonnée (intense)", met: 7.8 },
 ];
 
 export function findSport(id: string): Sport | undefined {
