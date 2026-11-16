@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { EnergyBarIcon, FlaskIcon } from "@/components/NutritionIcons";
+import InfoTooltip from "@/components/InfoTooltip";
 import NutritionTimeline from "@/components/NutritionTimeline";
 import { parseDecimal } from "@/lib/energy";
+import { LIMITING_FACTOR_HELP } from "@/lib/helpTexts";
 import {
   buildNutritionTimeline,
   computeCapUsage,
@@ -264,10 +266,19 @@ export default function NutritionPlanView() {
             </div>
           </div>
 
-          <p className="text-xs text-muted">
-            Facteur limitant :{" "}
-            {plan.limitingFactor === "carbs" ? "glucides" : "sodium"}
-          </p>
+          <div className="flex items-start justify-between gap-2">
+            <p className="min-w-0 text-xs text-muted">
+              Facteur limitant :{" "}
+              {plan.limitingFactor === "carbs" ? "glucides" : "sodium"}
+            </p>
+            <InfoTooltip
+              id="help-limiting-factor"
+              label="Aide : facteur limitant"
+              title="Facteur limitant"
+            >
+              {LIMITING_FACTOR_HELP}
+            </InfoTooltip>
+          </div>
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div className={TILE}>
@@ -353,7 +364,7 @@ export default function NutritionPlanView() {
             <CapGauge
               testId="nutrition-cap-water"
               label="Boisson par heure"
-              text={`Eau : ${integer(waterRate)}ml/h`}
+              text={`Eau : ${integer(waterRate)} ml/h`}
               used={waterRate}
               cap={HYDRATION_CAP_ML_PER_HOUR}
               ratio={waterUsage.ratio}

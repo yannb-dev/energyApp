@@ -13,11 +13,18 @@ describe("page d'accueil", () => {
     render(<Home />);
 
     expect(
-      screen.getByRole("heading", { name: /dépense énergétique/i, level: 1 }),
+      screen.getByRole("heading", {
+        name: /Gestion alimentaire sportive/i,
+        level: 1,
+      }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Âge (ans)")).toBeInTheDocument();
-    expect(screen.getByLabelText("Niveau d'activité")).toBeInTheDocument();
-    expect(screen.getByText(/estimation indicative, non médicale/i)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Niveau d'activité physique"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/estimation indicative, non médicale/i),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Durée (minutes)")).toBeInTheDocument();
   });
 });

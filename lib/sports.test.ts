@@ -28,31 +28,29 @@ describe("SPORTS", () => {
   });
 
   it("reprend les MET du Compendium of Physical Activities", () => {
-    expect(SPORTS.find((sport) => sport.label === "Marche rapide")?.met).toBe(
-      4.3,
+    expect(
+      SPORTS.find((sport) => sport.label === "Course à pied (modéré)")?.met,
+    ).toBe(8.3);
+    expect(
+      SPORTS.find((sport) => sport.label === "Course à pied (intense)")?.met,
+    ).toBe(9.8);
+    expect(SPORTS.find((sport) => sport.label === "Trail (modéré)")?.met).toBe(
+      9,
     );
-    expect(SPORTS.find((sport) => sport.label === "Course 8 km/h")?.met).toBe(
-      8.3,
-    );
-    expect(SPORTS.find((sport) => sport.label === "Course 10 km/h")?.met).toBe(
-      9.8,
-    );
-    expect(SPORTS.find((sport) => sport.label === "Ski Randonnée")?.met).toBe(
-      10,
+    expect(SPORTS.find((sport) => sport.label === "Trail (intense)")?.met).toBe(
+      11,
     );
     expect(
-      SPORTS.find((sport) => sport.label === "Vélo route soutenu")?.met,
+      SPORTS.find((sport) => sport.label === "Ski de randonnée (modéré)")?.met,
+    ).toBe(7);
+    expect(
+      SPORTS.find((sport) => sport.label === "Ski de randonnée (intense)")?.met,
     ).toBe(10);
     expect(
-      SPORTS.find((sport) => sport.label === "Natation crawl modérée")?.met,
-    ).toBe(5.8);
+      SPORTS.find((sport) => sport.label === "Randonnée (modéré)")?.met,
+    ).toBe(6);
     expect(
-      SPORTS.find((sport) => sport.label === "Natation crawl rapide")?.met,
-    ).toBe(9.8);
-    expect(SPORTS.find((sport) => sport.label === "Aviron modéré")?.met).toBe(
-      7,
-    );
-    expect(SPORTS.find((sport) => sport.label === "Randonnée")?.met).toBe(6);
-    expect(SPORTS.find((sport) => sport.label === "Ski de fond")?.met).toBe(9);
+      SPORTS.find((sport) => sport.label === "Randonnée (intense)")?.met,
+    ).toBe(7.8);
   });
 });

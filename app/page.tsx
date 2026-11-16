@@ -11,7 +11,7 @@ export default function Home() {
         </h1>
         <p className="text-sm text-muted">
           Métabolisme de base, dépense du jour et coût énergétique et gestion de
-          l'alimentation pendant l'effort.
+          l&apos;alimentation pendant l&apos;effort.
         </p>
       </header>
       <Suspense>

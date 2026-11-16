@@ -271,6 +271,30 @@ describe("NutritionPlanner", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it("propose une aide « ? » sur le plafond à respecter", async () => {
+    render(<NutritionPlanner minutes="120" />);
+    const u = user();
+
+    const help = screen.getByRole("button", { name: "Aide : plafond à respecter" });
+
+    expect(help).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await u.click(help);
+
+    expect(help).toHaveAttribute("aria-expanded", "true");
+    expect(help).toHaveAttribute("aria-controls", "help-caps");
+    const panel = screen.getByRole("dialog", { name: "Plafond à respecter" });
+    expect(panel).toHaveAttribute("id", "help-caps");
+    expect(panel).toHaveTextContent("Repères usuels");
+    expect(panel).toHaveTextContent("hyponatrémie");
+
+    await u.click(screen.getByRole("button", { name: "Fermer l'aide" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(help).toHaveFocus();
+  });
+
   it("fonctionne quand localStorage lève", async () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("stockage indisponible");
