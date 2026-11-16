@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import InfoTooltip from "@/components/InfoTooltip";
 import { BottleIcon, CerealBarIcon } from "@/components/NutritionIcons";
 import { parseDecimal } from "@/lib/energy";
+import { CAPS_HELP } from "@/lib/helpTexts";
 import {
   CARB_CAP_MAX,
   CARB_CAP_MIN,
@@ -303,9 +305,18 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
   return (
     <div className="flex flex-col gap-4">
       <section className={`motion-safe:animate-rise ${CARD}`} aria-labelledby="titre-plafond">
-        <h2 id="titre-plafond" className={CARD_TITLE}>
-          Plafond à respecter
-        </h2>
+        <div className="flex items-start justify-between gap-2">
+          <h2 id="titre-plafond" className={CARD_TITLE}>
+            Plafond à respecter
+          </h2>
+          <InfoTooltip
+            id="help-caps"
+            label="Aide : plafond à respecter"
+            title="Plafond à respecter"
+          >
+            {CAPS_HELP}
+          </InfoTooltip>
+        </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>

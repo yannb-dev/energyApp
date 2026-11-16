@@ -64,7 +64,7 @@ Pas de « ? » sur « Coût de l'effort », « Part de l'effort » ni sur le blo
 
 ### Partie A — Toi (avant)
 
-Rien à installer. Vérifier que `npm run test:run` passe avant de lancer l'agent.
+Rien à installer. Vérifier que `npm run test` passe avant de lancer l'agent.
 
 ### Partie B — Agent (TDD strict, un fichier à la fois, dans cet ordre)
 

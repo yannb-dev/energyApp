@@ -46,25 +46,28 @@ Si l'utilisateur ne souhaite pas prioriser, l'application déterminera les prise
 - La liste des types de produit reste identiques.
 - Calcul en dur avec cette répartition :
   [{
-  durée : < 1h00, intensité : "modéré", statégie : priorité: "BARRE"
+  durée : < 1h00, intensité : "modéré", barre : 0, compote: 0, pate : 0, gel: 100
   },
   {
-  durée : < 1h00, intensité : "intense", statégie : priorité: "GEL"
+  durée : < 1h00, intensité : "intense", barre : 0, compote: 0, pate : 0, gel: 100
   },
   {
-  durée : 1h00 => 2h00, intensité : "modéré", statégie : priorité: "BARRE/GEL"
+  durée : 1h00 => 2h00, intensité : "modéré", barre : 50, compote: 0, pate : 0, gel: 50
   },
   {
-  durée : 1h00 => 2h00, intensité : "intense", statégie : priorité: "GEL"
+  durée : 1h00 => 2h00, intensité : "intense", barre : 30, compote: 0, pate : 0, gel: 70
   },
   {
-  durée : 2h00 => 4h00, intensité : "modéré", statégie : priorité: "MIXTE50%"
+  durée : 2h00 => 4h00, intensité : "modéré", barre : 70, compote: 0, pate : 0, gel: 30
   },
   {
-  durée : 4h00 => 6h00, intensité : "modéré", statégie : priorité: "MIXTE70%BARRE30%GEL"
+  durée : 2h00 => 4h00, intensité : "intense", barre : 40, compote: 0, pate : 0, gel: 60
   },
   {
-  durée : > 6h00, intensité : "modéré", statégie : priorité: "MIXTE80%BARRE20%GEL"
+  durée : 4h00 => 6h00, intensité : "modéré", barre : 80, compote: 0, pate : 0, gel: 20
+  },
+  {
+  durée : > 6h00, intensité : "modéré", barre : 100, compote: 0, pate : 0, gel: 0
   },
   ]
 

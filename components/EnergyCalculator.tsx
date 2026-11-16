@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 
+import InfoTooltip from "@/components/InfoTooltip";
 import {
   ACTIVITY_LEVELS,
   AGE_MAX,
@@ -17,6 +18,7 @@ import {
   type EnergyField,
   type EnergyFormValues,
 } from "@/lib/energy";
+import { BMR_HELP, TDEE_HELP } from "@/lib/helpTexts";
 import { findSport, SPORTS } from "@/lib/sports";
 
 const EMPTY_VALUES: EnergyFormValues = {
@@ -298,7 +300,7 @@ export default function EnergyCalculator({
               >
                 {activity.label}
               </span>{" "}
-              <span data-testid="activity-label" className=" text-muted">
+              <span data-testid="activity-label-detail" className=" text-muted">
                 {activity.detail}
               </span>
             </p>
@@ -438,7 +440,16 @@ export default function EnergyCalculator({
 
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               <div className={TILE}>
-                <p className="text-xs text-muted">Dépense journalière</p>
+                <div className="flex items-start justify-between gap-1">
+                  <p className="min-w-0 text-xs text-muted">Dépense journalière</p>
+                  <InfoTooltip
+                    id="help-tdee"
+                    label="Aide : dépense journalière"
+                    title="Dépense journalière"
+                  >
+                    {TDEE_HELP}
+                  </InfoTooltip>
+                </div>
                 <p className="text-lg font-semibold text-ink">
                   <span data-testid="tdee">{Math.round(results.tdee)}</span>
                   <span className="ml-1 text-xs font-normal text-muted">
@@ -447,7 +458,16 @@ export default function EnergyCalculator({
                 </p>
               </div>
               <div className={TILE}>
-                <p className="text-xs text-muted">Métabolisme de base</p>
+                <div className="flex items-start justify-between gap-1">
+                  <p className="min-w-0 text-xs text-muted">Métabolisme de base</p>
+                  <InfoTooltip
+                    id="help-bmr"
+                    label="Aide : métabolisme de base"
+                    title="Métabolisme de base"
+                  >
+                    {BMR_HELP}
+                  </InfoTooltip>
+                </div>
                 <p className="text-lg font-semibold text-ink">
                   <span data-testid="bmr">{Math.round(results.bmr)}</span>
                   <span className="ml-1 text-xs font-normal text-muted">
