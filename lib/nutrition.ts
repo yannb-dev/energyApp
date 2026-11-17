@@ -1,4 +1,5 @@
 import { parseDecimal } from "@/lib/energy";
+import type { Product } from "@/lib/products";
 
 export const CARB_CAP_DEFAULT_G_PER_HOUR = 60;
 export const CARB_CAP_MIN = 20;
@@ -369,6 +370,8 @@ export type TimelineEvent = {
   kind: "drink" | "solid";
   carbsG: number;
   sodiumMg: number;
+  /** Produit concerné par une prise solide ; absent pour une gorgée. */
+  productId?: string;
 };
 
 /** Point de la courbe cumulée, en glucides et en sodium. */
@@ -473,7 +476,10 @@ export function buildNutritionTimeline(
 }
 
 /** Débit de boisson en ml/h ; 0 sans boisson ou sans durée. */
-export function computeHydrationRate(plan: NutritionPlan, minutes: number): number {
+export function computeHydrationRate(
+  plan: { drink: DrinkIntake | null },
+  minutes: number,
+): number {
   if (!plan.drink || minutes <= 0) {
     return 0;
   }
@@ -483,4 +489,229 @@ export function computeHydrationRate(plan: NutritionPlan, minutes: number): numb
 /** Position verticale d'une minute sur l'axe de la timeline, en pixels. */
 export function timelineOffsetPx(minute: number): number {
   return (minute / 10) * TIMELINE_PX_PER_10_MIN;
+}
+
+/** Boisson du calcul multi-produits, en valeurs numériques. */
+export type DrinkInput = {
+  concentration: number;
+  kcalPer100: number;
+  carbsPer100: number;
+  saltPer100: number;
+};
+
+/** Entrée du calcul multi-produits : plafonds, durée, produit(s) retenu(s) et parts. */
+export type MultiProductInput = {
+  carbCap: number;
+  sodiumCap: number;
+  minutes: number;
+  products: Product[];
+  /** Part de chaque produit, dans l'ordre A, B, C (somme = 100). */
+  shares: number[];
+  drink: DrinkInput | null;
+};
+
+export type MultiProductItem = {
+  productId: string;
+  units: number;
+  limitingFactor: "carbs" | "sodium";
+};
+
+export type MultiProductPlan = {
+  items: MultiProductItem[];
+  /** Facteur du produit qui donne le moins d'unités par rapport à sa part. */
+  limitingFactor: "carbs" | "sodium";
+  drink: DrinkIntake | null;
+  totals: { carbsG: number; sodiumMg: number; kcal: number };
+  rates: { carbsGPerHour: number; sodiumMgPerHour: number };
+  warnings: string[];
+};
+
+/** Boisson calculée à partir de la durée : une prise toutes les 15 min. */
+function buildDrinkIntake(minutes: number, input: DrinkInput | null): DrinkIntake | null {
+  if (!input) {
+    return null;
+  }
+
+  const servings = Math.floor(minutes / DRINK_INTERVAL_MINUTES);
+  const volumeMl = servings * DRINK_SERVING_ML;
+  const powderG = (volumeMl * input.concentration) / 1000;
+
+  return {
+    servings,
+    volumeMl,
+    powderG,
+    carbsG: (powderG * input.carbsPer100) / 100,
+    kcal: (powderG * input.kcalPer100) / 100,
+    sodiumMg: (powderG * input.saltPer100 * SODIUM_MG_PER_GRAM_SALT) / 100,
+  };
+}
+
+/** Plan de nutrition de plusieurs produits : budgets répartis selon les parts. */
+export function computeMultiProductPlan(input: MultiProductInput): MultiProductPlan {
+  const hours = input.minutes / 60;
+  const drink = buildDrinkIntake(input.minutes, input.drink);
+
+  const drinkCarbs = drink?.carbsG ?? 0;
+  const drinkSodium = drink?.sodiumMg ?? 0;
+  const drinkKcal = drink?.kcal ?? 0;
+
+  const carbsBudget = Math.max(0, input.carbCap * hours - drinkCarbs);
+  const sodiumBudget = Math.max(0, input.sodiumCap * hours - drinkSodium);
+
+  const items: MultiProductItem[] = input.products.map((product, index) => {
+    const share = input.shares[index] ?? 0;
+    const productCarbsBudget = (carbsBudget * share) / 100;
+    const productSodiumBudget = (sodiumBudget * share) / 100;
+
+    const unitSodium = product.salt * SODIUM_MG_PER_GRAM_SALT;
+    const unitsByCarbs =
+      product.carbs > 0 ? Math.floor(productCarbsBudget / product.carbs) : 0;
+    const unitsBySodium =
+      unitSodium > 0 ? Math.floor(productSodiumBudget / unitSodium) : Number.POSITIVE_INFINITY;
+
+    return {
+      productId: product.id,
+      units: Math.min(unitsByCarbs, unitsBySodium),
+      limitingFactor: unitsByCarbs <= unitsBySodium ? "carbs" : "sodium",
+    };
+  });
+
+  let carbsG = drinkCarbs;
+  let sodiumMg = drinkSodium;
+  let kcal = drinkKcal;
+  for (const item of items) {
+    const product = input.products.find((candidate) => candidate.id === item.productId);
+    if (!product) {
+      continue;
+    }
+    carbsG += item.units * product.carbs;
+    sodiumMg += item.units * product.salt * SODIUM_MG_PER_GRAM_SALT;
+    kcal += item.units * product.kcal;
+  }
+
+  let limitingFactor: "carbs" | "sodium" = "carbs";
+  if (items.length > 0) {
+    const rest = items.reduce((least, item) => (item.units < least.units ? item : least), items[0]);
+    limitingFactor = rest.limitingFactor;
+  }
+
+  const totalUnits = items.reduce((sum, item) => sum + item.units, 0);
+  const warnings: string[] = [];
+  if (drink && (drink.carbsG / hours > input.carbCap || drink.sodiumMg / hours > input.sodiumCap)) {
+    warnings.push(WARNING_DRINK_CONCENTRATION);
+  }
+  if (items.length > 0 && totalUnits === 0) {
+    warnings.push(WARNING_NO_UNIT_FITS);
+  }
+
+  return {
+    items,
+    limitingFactor,
+    drink,
+    totals: { carbsG, sodiumMg, kcal },
+    rates: {
+      carbsGPerHour: hours > 0 ? carbsG / hours : 0,
+      sodiumMgPerHour: hours > 0 ? sodiumMg / hours : 0,
+    },
+    warnings,
+  };
+}
+
+/** Entrée de la timeline multi-produits. */
+export type MultiTimelineInput = {
+  minutes: number;
+  carbCap: number;
+  sodiumCap: number;
+  /** Produits sélectionnés, dans l'ordre des labels. */
+  products: Product[];
+  items: MultiProductItem[];
+  order: "sequence" | "alternate";
+  drink: DrinkIntake | null;
+};
+
+/** Ordre de consommation des unités : séquence A puis B… ou alternance A, B, A, B… */
+function consumptionOrder(items: MultiProductItem[], order: MultiTimelineInput["order"]): string[] {
+  if (order === "sequence") {
+    return items.flatMap((item) => Array.from({ length: item.units }, () => item.productId));
+  }
+
+  const remaining = items.map((item) => item.units);
+  const sequence: string[] = [];
+  let placed = true;
+  while (placed) {
+    placed = false;
+    for (let index = 0; index < items.length; index += 1) {
+      if (remaining[index] > 0) {
+        sequence.push(items[index].productId);
+        remaining[index] -= 1;
+        placed = true;
+      }
+    }
+  }
+  return sequence;
+}
+
+/** Timeline multi-produits : une prise solide par unité, dans l'ordre choisi. */
+export function buildMultiProductTimeline(input: MultiTimelineInput): NutritionTimeline {
+  const events: TimelineEvent[] = [];
+
+  if (input.drink && input.drink.servings > 0) {
+    const carbsPerServing = input.drink.carbsG / input.drink.servings;
+    const sodiumPerServing = input.drink.sodiumMg / input.drink.servings;
+    for (let index = 1; index <= input.drink.servings; index += 1) {
+      events.push({
+        minute: DRINK_INTERVAL_MINUTES * index,
+        kind: "drink",
+        carbsG: carbsPerServing,
+        sodiumMg: sodiumPerServing,
+      });
+    }
+  }
+
+  const sequence = consumptionOrder(input.items, input.order);
+  sequence.forEach((productId, index) => {
+    const product = input.products.find((candidate) => candidate.id === productId);
+    if (!product) {
+      return;
+    }
+    events.push({
+      minute: (input.minutes * (index + 0.5)) / sequence.length,
+      kind: "solid",
+      carbsG: product.carbs,
+      sodiumMg: product.salt * SODIUM_MG_PER_GRAM_SALT,
+      productId: product.id,
+    });
+  });
+
+  events.sort((first, second) => first.minute - second.minute);
+
+  const series: TimelinePoint[] = [{ minute: 0, carbsG: 0, sodiumMg: 0 }];
+  let carbsG = 0;
+  let sodiumMg = 0;
+  for (const event of events) {
+    carbsG += event.carbsG;
+    sodiumMg += event.sodiumMg;
+    series.push({ minute: event.minute, carbsG, sodiumMg });
+  }
+  if (series[series.length - 1].minute < input.minutes) {
+    series.push({ minute: input.minutes, carbsG, sodiumMg });
+  }
+
+  const hours = input.minutes / 60;
+
+  return {
+    minutes: input.minutes,
+    events,
+    series,
+    capLines: {
+      carbsG: {
+        from: { minute: 0, value: 0 },
+        to: { minute: input.minutes, value: input.carbCap * hours },
+      },
+      sodiumMg: {
+        from: { minute: 0, value: 0 },
+        to: { minute: input.minutes, value: input.sodiumCap * hours },
+      },
+    },
+  };
 }

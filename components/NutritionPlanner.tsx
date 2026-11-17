@@ -6,12 +6,12 @@ import { useRouter } from "next/navigation";
 import InfoTooltip from "@/components/InfoTooltip";
 import { BottleIcon, CerealBarIcon } from "@/components/NutritionIcons";
 import { parseDecimal } from "@/lib/energy";
-import { CAPS_HELP } from "@/lib/helpTexts";
+import { CAPS_HELP, STRATEGY_HELP } from "@/lib/helpTexts";
 import {
+  CARB_CAP_DEFAULT_G_PER_HOUR,
   CARB_CAP_MAX,
   CARB_CAP_MIN,
   CARB_CAP_RECOMMENDED,
-  DEFAULT_NUTRITION_VALUES,
   DRINK_CARBS_MAX,
   DRINK_CONCENTRATION_MAX,
   DRINK_CONCENTRATION_MIN,
@@ -21,6 +21,28 @@ import {
   DRINK_SALT_MIN,
   MINUTES_MAX,
   MINUTES_MIN,
+  SODIUM_CAP_DEFAULT_MG_PER_HOUR,
+  SODIUM_CAP_MAX,
+  SODIUM_CAP_MIN,
+  SODIUM_CAP_RECOMMENDED,
+} from "@/lib/nutrition";
+import {
+  clearNutrition,
+  EMPTY_NUTRITION_SETTINGS,
+  loadNutrition,
+  saveNutrition,
+  type NutritionSettings,
+} from "@/lib/nutritionStorage";
+import {
+  addProduct,
+  createProductId,
+  draftToProduct,
+  EMPTY_PRODUCT_DRAFT,
+  MAX_SELECTED_MESSAGE,
+  MAX_SELECTED_PRODUCTS,
+  moveSelected,
+  productLabel,
+  productToDraft,
   PRODUCT_KCAL_MAX,
   PRODUCT_KCAL_MIN,
   PRODUCT_SALT_MAX,
@@ -28,17 +50,17 @@ import {
   PRODUCT_TYPES,
   PRODUCT_WEIGHT_MAX,
   PRODUCT_WEIGHT_MIN,
-  SODIUM_CAP_MAX,
-  SODIUM_CAP_MIN,
-  SODIUM_CAP_RECOMMENDED,
+  removeProduct,
   TEXT_MAX_LENGTH,
-  validateNutritionInputs,
-  type NutritionField,
-  type NutritionFieldErrors,
-  type NutritionFormValues,
+  toggleSelected,
+  updateProduct,
+  validateProduct,
+  type Product,
+  type ProductDraft,
+  type ProductField,
   type ProductType,
-} from "@/lib/nutrition";
-import { clearNutrition, loadNutrition, saveNutrition } from "@/lib/nutritionStorage";
+} from "@/lib/products";
+import { defaultStrategy, getStrategies, resolveStrategy, strategyText } from "@/lib/strategies";
 
 const CARD = "rounded-2xl border border-line bg-surface p-4 shadow-lg shadow-canvas/60 sm:p-5";
 const CARD_TITLE = "mb-3 text-sm font-semibold uppercase tracking-wide text-muted";
@@ -51,40 +73,26 @@ const BUTTON_PRIMARY = `${BUTTON_BASE} bg-accent text-canvas hover:bg-accent-str
 const BUTTON_SECONDARY = `${BUTTON_BASE} border border-line text-ink hover:border-accent hover:text-accent-strong`;
 const BLOCK_ACTION =
   "flex h-11 w-full items-center justify-center rounded-xl border border-line px-4 text-sm font-semibold text-ink transition duration-200 hover:border-accent hover:text-accent-strong focus-visible:ring-2 focus-visible:ring-accent-strong";
+const ROW_ACTION =
+  "flex h-11 min-w-11 items-center justify-center rounded-xl border border-line px-3 text-sm font-semibold text-ink transition duration-200 hover:border-accent hover:text-accent-strong focus-visible:ring-2 focus-visible:ring-accent-strong disabled:cursor-not-allowed disabled:opacity-40";
 const PILL =
   "rounded-full border border-line bg-surface-2 px-2 py-0.5 text-xs font-medium text-accent";
 const ERROR_TEXT = "mt-1 text-sm text-danger";
 
 const DURATION_ERROR = "Renseigne la durée dans le bloc Activité.";
 
-/** Champs du bloc Produit : chacune de ces erreurs rouvre la carte. */
-const PRODUCT_FIELDS: readonly NutritionField[] = [
-  "productBrand",
-  "productName",
-  "productType",
-  "productKcal",
-  "productCarbs",
-  "productSalt",
-  "productWeight",
-];
-
-/** Champs du bloc Boisson : chacune de ces erreurs rouvre la carte. */
-const DRINK_FIELDS: readonly NutritionField[] = [
-  "drinkBrand",
-  "drinkName",
-  "drinkConcentration",
-  "drinkKcalPer100",
-  "drinkCarbsPer100",
-  "drinkSaltPer100",
-];
+/** Valeurs par défaut de la page : plafonds usuels, aucun produit. */
+function emptySettings(): NutritionSettings {
+  return {
+    ...EMPTY_NUTRITION_SETTINGS,
+    carbCap: String(CARB_CAP_DEFAULT_G_PER_HOUR),
+    sodiumCap: String(SODIUM_CAP_DEFAULT_MG_PER_HOUR),
+  };
+}
 
 /** Affichage : nombre à la française, sans zéros inutiles (« 0,25 », « 75 »). */
-function frenchNumber(raw: string): string {
-  const parsed = parseDecimal(raw);
-  if (parsed === null) {
-    return raw;
-  }
-  return String(parsed).replace(".", ",");
+function frenchNumber(value: number): string {
+  return String(value).replace(".", ",");
 }
 
 /** Durée venant du bloc Activité : entier de 1 à 1440 minutes, sinon null. */
@@ -101,6 +109,36 @@ function parseDuration(raw: string): number | null {
 
 function toProductType(raw: string): ProductType | "" {
   return (PRODUCT_TYPES as readonly string[]).includes(raw) ? (raw as ProductType) : "";
+}
+
+function isDraftEmpty(draft: ProductDraft): boolean {
+  return (
+    draft.brand === "" &&
+    draft.name === "" &&
+    draft.type === "" &&
+    draft.kcal === "" &&
+    draft.carbs === "" &&
+    draft.salt === "" &&
+    draft.weight === ""
+  );
+}
+
+/** Clé de stratégie cohérente avec le nombre de solides sélectionnés. */
+function strategyKeyFor(selectedIds: string[], current: string | null): string | null {
+  if (selectedIds.length < 2) {
+    return null;
+  }
+  return resolveStrategy(selectedIds.length === 3 ? 3 : 2, current).key;
+}
+
+function withStrategy(settings: NutritionSettings, selectedIds: string[]): NutritionSettings {
+  const strategyKey =
+    selectedIds.length < 2
+      ? null
+      : selectedIds.length === settings.selectedIds.length
+        ? strategyKeyFor(selectedIds, settings.strategyKey)
+        : defaultStrategy(selectedIds.length === 3 ? 3 : 2).key;
+  return { ...settings, selectedIds, strategyKey };
 }
 
 type NumberFieldProps = {
@@ -175,6 +213,21 @@ function TextField({ id, label, value, error, onChange }: TextFieldProps) {
   );
 }
 
+/** Chevron haut ou bas des boutons de réordonnancement. */
+function Chevron({ direction }: { direction: "up" | "down" }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+      <path
+        d={direction === "up" ? "M5 12.5 10 7.5 15 12.5" : "M5 7.5 10 12.5 15 7.5"}
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 type NutritionPlannerProps = {
   /** Durée de l'effort lue dans le bloc Activité ; seule source de la durée. */
   minutes: string;
@@ -182,11 +235,15 @@ type NutritionPlannerProps = {
 
 export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
   const router = useRouter();
-  const [values, setValues] = useState<NutritionFormValues>(DEFAULT_NUTRITION_VALUES);
+  const [settings, setSettings] = useState<NutritionSettings>(emptySettings);
   const [shouldPersist, setShouldPersist] = useState(false);
 
-  // État d'affichage des blocs repliables : jamais persisté.
-  const [openProduct, setOpenProduct] = useState(true);
+  // Formulaire produit : ouvert pour un ajout, prérempli pour une modification.
+  const [draft, setDraft] = useState<ProductDraft>(EMPTY_PRODUCT_DRAFT);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(true);
+
+  // État d'affichage de la boisson : jamais persisté.
   const [openDrink, setOpenDrink] = useState(true);
 
   // Les erreurs n'apparaissent qu'après une tentative sur le bloc concerné.
@@ -201,16 +258,10 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
     if (!stored) {
       return;
     }
-    const hydrated: NutritionFormValues = { ...DEFAULT_NUTRITION_VALUES, ...stored };
-    const storedErrors = validateNutritionInputs(hydrated);
     /* eslint-disable react-hooks/set-state-in-effect -- SPEC-02.1 : hydratation demandée dans un useEffect, pas pendant le rendu */
-    setValues(hydrated);
-    if (!PRODUCT_FIELDS.some((field) => storedErrors[field])) {
-      setOpenProduct(false);
-    }
-    if (hydrated.drinkEnabled && !DRINK_FIELDS.some((field) => storedErrors[field])) {
-      setOpenDrink(false);
-    }
+    setSettings(stored);
+    setFormOpen(stored.products.length === 0);
+    setOpenDrink(!stored.drinkEnabled);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
@@ -219,45 +270,189 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
     if (!shouldPersist) {
       return;
     }
-    saveNutrition(values);
-  }, [values, shouldPersist]);
+    saveNutrition(settings);
+  }, [settings, shouldPersist]);
 
-  // La durée n'est plus un champ de la nutrition : elle vient du bloc Activité.
-  const errors = useMemo<NutritionFieldErrors>(() => {
-    const current = { ...validateNutritionInputs(values) };
-    delete current.minutes;
-    return current;
-  }, [values]);
+  const capsErrors = useMemo(() => {
+    const errors: { carbCap?: string; sodiumCap?: string } = {};
+
+    const carbCap = parseDecimal(settings.carbCap);
+    if (carbCap === null) {
+      errors.carbCap = "Les glucides max sont obligatoires.";
+    } else if (carbCap < CARB_CAP_MIN || carbCap > CARB_CAP_MAX) {
+      errors.carbCap = `Les glucides max : la valeur doit être entre ${CARB_CAP_MIN} et ${CARB_CAP_MAX} g/h.`;
+    }
+
+    const sodiumCap = parseDecimal(settings.sodiumCap);
+    if (sodiumCap === null) {
+      errors.sodiumCap = "Le sodium max est obligatoire.";
+    } else if (sodiumCap < SODIUM_CAP_MIN || sodiumCap > SODIUM_CAP_MAX) {
+      errors.sodiumCap = `Le sodium max : la valeur doit être entre ${SODIUM_CAP_MIN} et ${SODIUM_CAP_MAX} mg/h.`;
+    }
+
+    return errors;
+  }, [settings.carbCap, settings.sodiumCap]);
+
+  const drinkErrors = useMemo(() => {
+    const errors: Partial<
+      Record<
+        | "drinkBrand"
+        | "drinkName"
+        | "drinkConcentration"
+        | "drinkKcalPer100"
+        | "drinkCarbsPer100"
+        | "drinkSaltPer100",
+        string
+      >
+    > = {};
+    if (!settings.drinkEnabled) {
+      return errors;
+    }
+
+    if (settings.drinkBrand.trim() === "") {
+      errors.drinkBrand = "La marque de la boisson est obligatoire.";
+    }
+    if (settings.drinkName.trim() === "") {
+      errors.drinkName = "Le nom de la boisson est obligatoire.";
+    }
+
+    const concentration = parseDecimal(settings.drinkConcentration);
+    if (concentration === null) {
+      errors.drinkConcentration = "La concentration est obligatoire.";
+    } else if (
+      concentration < DRINK_CONCENTRATION_MIN ||
+      concentration > DRINK_CONCENTRATION_MAX
+    ) {
+      errors.drinkConcentration = `La concentration : la valeur doit être entre ${DRINK_CONCENTRATION_MIN} et ${DRINK_CONCENTRATION_MAX} g/L.`;
+    }
+
+    const kcal = parseDecimal(settings.drinkKcalPer100);
+    if (kcal === null) {
+      errors.drinkKcalPer100 = "L'énergie pour 100 g de poudre est obligatoire.";
+    } else if (kcal < DRINK_KCAL_MIN || kcal > DRINK_KCAL_MAX) {
+      errors.drinkKcalPer100 = `L'énergie pour 100 g de poudre : la valeur doit être entre ${DRINK_KCAL_MIN} et ${DRINK_KCAL_MAX} kcal.`;
+    }
+
+    const carbs = parseDecimal(settings.drinkCarbsPer100);
+    if (carbs === null) {
+      errors.drinkCarbsPer100 = "Les glucides pour 100 g de poudre sont obligatoires.";
+    } else if (carbs <= 0 || carbs > DRINK_CARBS_MAX) {
+      errors.drinkCarbsPer100 =
+        "Les glucides pour 100 g de poudre doivent être supérieurs à 0 et au plus 100 g.";
+    }
+
+    const salt = parseDecimal(settings.drinkSaltPer100);
+    if (salt === null) {
+      errors.drinkSaltPer100 = "Le sel pour 100 g de poudre est obligatoire.";
+    } else if (salt < DRINK_SALT_MIN || salt > DRINK_SALT_MAX) {
+      errors.drinkSaltPer100 = `Le sel pour 100 g de poudre : la valeur doit être entre ${DRINK_SALT_MIN} et ${DRINK_SALT_MAX} g.`;
+    }
+
+    return errors;
+  }, [settings]);
+
+  const productErrors = useMemo(() => validateProduct(draft), [draft]);
 
   const duration = parseDuration(minutes);
+  const selectedCount = settings.selectedIds.length;
+  const strategies = selectedCount >= 2 ? getStrategies(selectedCount === 3 ? 3 : 2) : [];
+  const strategy = strategies.length > 0 ? resolveStrategy(selectedCount === 3 ? 3 : 2, settings.strategyKey) : null;
+  const labels = settings.selectedIds.map((_, index) => productLabel(index).replace("Produit ", ""));
 
-  function patch(part: Partial<NutritionFormValues>) {
+  function persist(next: NutritionSettings) {
     setShouldPersist(true);
-    setValues((current) => ({ ...current, ...part }));
+    setSettings(next);
   }
 
-  function errorFor(field: NutritionField, attempted: boolean): string | null {
+  function patchSettings(part: Partial<NutritionSettings>) {
+    persist({ ...settings, ...part });
+  }
+
+  function patchDraft(part: Partial<ProductDraft>) {
+    setDraft((current) => ({ ...current, ...part }));
+  }
+
+  function errorFor(field: ProductField, attempted: boolean): string | null {
     if (!attempted) {
       return null;
     }
-    return errors[field] ?? null;
+    return productErrors[field] ?? null;
   }
 
-  function handleValidateProduct() {
+  function handleAddProduct() {
+    setDraft(EMPTY_PRODUCT_DRAFT);
+    setEditingId(null);
+    setProductAttempted(false);
+    setFormOpen(true);
+  }
+
+  function handleEditProduct(product: Product) {
+    setDraft(productToDraft(product));
+    setEditingId(product.id);
+    setProductAttempted(false);
+    setFormOpen(true);
+  }
+
+  function saveDraftProduct(): NutritionSettings | null {
+    const product = draftToProduct(draft, editingId ?? createProductId());
+    if (!product) {
+      return null;
+    }
+
+    if (editingId) {
+      return { ...settings, products: updateProduct(settings.products, product) };
+    }
+
+    const products = addProduct(settings.products, product);
+    return withStrategy({ ...settings, products }, toggleSelected(settings.selectedIds, product.id));
+  }
+
+  function handleSubmitProduct() {
     setProductAttempted(true);
-    if (!PRODUCT_FIELDS.some((field) => errors[field])) {
-      setOpenProduct(false);
+    if (Object.keys(productErrors).length > 0) {
+      return;
+    }
+
+    const next = saveDraftProduct();
+    if (!next) {
+      return;
+    }
+
+    persist(next);
+    setDraft(EMPTY_PRODUCT_DRAFT);
+    setEditingId(null);
+    setProductAttempted(false);
+    setFormOpen(false);
+  }
+
+  function handleDeleteProduct(id: string) {
+    const selectedIds = settings.selectedIds.filter((current) => current !== id);
+    persist({
+      ...withStrategy(settings, selectedIds),
+      products: removeProduct(settings.products, id),
+    });
+    if (editingId === id) {
+      setDraft(EMPTY_PRODUCT_DRAFT);
+      setEditingId(null);
+      setFormOpen(true);
     }
   }
 
-  function handleEditProduct() {
-    setProductAttempted(false);
-    setOpenProduct(true);
+  function handleToggleProduct(id: string) {
+    persist(withStrategy(settings, toggleSelected(settings.selectedIds, id)));
+  }
+
+  function handleMoveProduct(id: string, direction: "up" | "down") {
+    persist({ ...settings, selectedIds: moveSelected(settings.selectedIds, id, direction) });
+  }
+
+  function handleStrategy(key: string) {
+    persist({ ...settings, strategyKey: key });
   }
 
   function handleValidateDrink() {
     setDrinkAttempted(true);
-    if (!DRINK_FIELDS.some((field) => errors[field])) {
+    if (Object.keys(drinkErrors).length === 0) {
       setOpenDrink(false);
     }
   }
@@ -269,15 +464,32 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
 
   function handleCalculate() {
     setCapsAttempted(true);
-    setProductAttempted(true);
     setDrinkAttempted(true);
     setDurationAttempted(true);
 
-    if (Object.keys(errors).length > 0) {
-      if (PRODUCT_FIELDS.some((field) => errors[field])) {
-        setOpenProduct(true);
+    // Sans produit enregistré, le formulaire ouvert fait foi.
+    const mustValidateDraft = !isDraftEmpty(draft) || settings.products.length === 0;
+
+    if (mustValidateDraft) {
+      setProductAttempted(true);
+      if (Object.keys(productErrors).length > 0) {
+        setFormOpen(true);
+        return;
       }
-      if (DRINK_FIELDS.some((field) => errors[field])) {
+      const saved = saveDraftProduct();
+      if (!saved) {
+        setFormOpen(true);
+        return;
+      }
+      persist(saved);
+      setDraft(EMPTY_PRODUCT_DRAFT);
+      setEditingId(null);
+      setProductAttempted(false);
+      setFormOpen(false);
+    }
+
+    if (Object.keys(capsErrors).length > 0 || Object.keys(drinkErrors).length > 0) {
+      if (Object.keys(drinkErrors).length > 0) {
         setOpenDrink(true);
       }
       return;
@@ -292,8 +504,10 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
 
   function handleReset() {
     setShouldPersist(false);
-    setValues(DEFAULT_NUTRITION_VALUES);
-    setOpenProduct(true);
+    setSettings(emptySettings());
+    setDraft(EMPTY_PRODUCT_DRAFT);
+    setEditingId(null);
+    setFormOpen(true);
     setOpenDrink(true);
     setCapsAttempted(false);
     setProductAttempted(false);
@@ -323,12 +537,12 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
             <NumberField
               id="nutrition-carb-cap"
               label="Glucides max (g/h)"
-              value={values.carbCap}
+              value={settings.carbCap}
               min={CARB_CAP_MIN}
               max={CARB_CAP_MAX}
               step={1}
-              error={errorFor("carbCap", capsAttempted)}
-              onChange={(carbCap) => patch({ carbCap })}
+              error={capsAttempted ? (capsErrors.carbCap ?? null) : null}
+              onChange={(carbCap) => patchSettings({ carbCap })}
             />
             <p className="mt-1 text-xs text-muted">
               Repère usuel : {CARB_CAP_RECOMMENDED.min} à {CARB_CAP_RECOMMENDED.max} g/h
@@ -338,12 +552,12 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
             <NumberField
               id="nutrition-sodium-cap"
               label="Sodium max (mg/h)"
-              value={values.sodiumCap}
+              value={settings.sodiumCap}
               min={SODIUM_CAP_MIN}
               max={SODIUM_CAP_MAX}
               step={10}
-              error={errorFor("sodiumCap", capsAttempted)}
-              onChange={(sodiumCap) => patch({ sodiumCap })}
+              error={capsAttempted ? (capsErrors.sodiumCap ?? null) : null}
+              onChange={(sodiumCap) => patchSettings({ sodiumCap })}
             />
             <p className="mt-1 text-xs text-muted">
               Repère usuel : {SODIUM_CAP_RECOMMENDED.min} à {SODIUM_CAP_RECOMMENDED.max} mg/h
@@ -354,28 +568,28 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
 
       <section
         className={`motion-safe:animate-rise rise-delay-1 ${CARD}`}
-        aria-labelledby="titre-produit"
+        aria-labelledby="titre-produits"
       >
-        <h2 id="titre-produit" className={CARD_TITLE}>
-          Produit
+        <h2 id="titre-produits" className={CARD_TITLE}>
+          Produits
         </h2>
 
-        {openProduct ? (
+        {formOpen ? (
           <>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <TextField
                 id="nutrition-product-brand"
                 label="Marque"
-                value={values.productBrand}
-                error={errorFor("productBrand", productAttempted)}
-                onChange={(productBrand) => patch({ productBrand })}
+                value={draft.brand}
+                error={errorFor("brand", productAttempted)}
+                onChange={(brand) => patchDraft({ brand })}
               />
               <TextField
                 id="nutrition-product-name"
                 label="Nom du produit"
-                value={values.productName}
-                error={errorFor("productName", productAttempted)}
-                onChange={(productName) => patch({ productName })}
+                value={draft.name}
+                error={errorFor("name", productAttempted)}
+                onChange={(name) => patchDraft({ name })}
               />
               <div>
                 <label htmlFor="nutrition-product-type" className={FIELD_LABEL}>
@@ -384,13 +598,11 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
                 <div className="relative">
                   <select
                     id="nutrition-product-type"
-                    value={values.productType}
-                    onChange={(event) => patch({ productType: toProductType(event.target.value) })}
-                    aria-invalid={errorFor("productType", productAttempted) ? true : undefined}
+                    value={draft.type}
+                    onChange={(event) => patchDraft({ type: toProductType(event.target.value) })}
+                    aria-invalid={errorFor("type", productAttempted) ? true : undefined}
                     aria-describedby={
-                      errorFor("productType", productAttempted)
-                        ? "nutrition-product-type-erreur"
-                        : undefined
+                      errorFor("type", productAttempted) ? "nutrition-product-type-erreur" : undefined
                     }
                     className={`${FIELD} appearance-none pr-10`}
                   >
@@ -416,84 +628,202 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
                     />
                   </svg>
                 </div>
-                {errorFor("productType", productAttempted) ? (
+                {errorFor("type", productAttempted) ? (
                   <p id="nutrition-product-type-erreur" role="alert" className={ERROR_TEXT}>
-                    {errorFor("productType", productAttempted)}
+                    {errorFor("type", productAttempted)}
                   </p>
                 ) : null}
               </div>
               <NumberField
                 id="nutrition-product-kcal"
                 label="Énergie (kcal)"
-                value={values.productKcal}
+                value={draft.kcal}
                 min={PRODUCT_KCAL_MIN}
                 max={PRODUCT_KCAL_MAX}
                 step={1}
-                error={errorFor("productKcal", productAttempted)}
-                onChange={(productKcal) => patch({ productKcal })}
+                error={errorFor("kcal", productAttempted)}
+                onChange={(kcal) => patchDraft({ kcal })}
               />
               <NumberField
                 id="nutrition-product-carbs"
                 label="Glucides (g)"
-                value={values.productCarbs}
+                value={draft.carbs}
                 min={0}
                 max={PRODUCT_WEIGHT_MAX}
                 step={0.1}
-                error={errorFor("productCarbs", productAttempted)}
-                onChange={(productCarbs) => patch({ productCarbs })}
+                error={errorFor("carbs", productAttempted)}
+                onChange={(carbs) => patchDraft({ carbs })}
               />
               <NumberField
                 id="nutrition-product-salt"
                 label="Sel (g)"
-                value={values.productSalt}
+                value={draft.salt}
                 min={PRODUCT_SALT_MIN}
                 max={PRODUCT_SALT_MAX}
                 step={0.01}
-                error={errorFor("productSalt", productAttempted)}
-                onChange={(productSalt) => patch({ productSalt })}
+                error={errorFor("salt", productAttempted)}
+                onChange={(salt) => patchDraft({ salt })}
               />
               <NumberField
                 id="nutrition-product-weight"
                 label="Poids (g)"
-                value={values.productWeight}
+                value={draft.weight}
                 min={PRODUCT_WEIGHT_MIN}
                 max={PRODUCT_WEIGHT_MAX}
                 step={1}
-                error={errorFor("productWeight", productAttempted)}
-                onChange={(productWeight) => patch({ productWeight })}
+                error={errorFor("weight", productAttempted)}
+                onChange={(weight) => patchDraft({ weight })}
               />
             </div>
 
-            <button
-              type="button"
-              onClick={handleValidateProduct}
-              className={`mt-4 ${BLOCK_ACTION}`}
-            >
-              Valider le produit
-            </button>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <button type="button" onClick={handleSubmitProduct} className={BLOCK_ACTION}>
+                Valider le produit
+              </button>
+              {settings.products.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft(EMPTY_PRODUCT_DRAFT);
+                    setEditingId(null);
+                    setProductAttempted(false);
+                    setFormOpen(false);
+                  }}
+                  className={BUTTON_SECONDARY}
+                >
+                  Annuler
+                </button>
+              ) : null}
+            </div>
           </>
         ) : (
-          <div className="flex flex-col gap-3">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <CerealBarIcon />
-                <span data-testid="product-summary-name" className="text-sm font-semibold text-ink">
-                  {values.productName}
-                </span>
-                <span data-testid="product-summary-type" className={PILL}>
-                  {values.productType}
-                </span>
-              </div>
-              <p data-testid="product-summary-details" className="text-sm text-muted">
-                Glucides {frenchNumber(values.productCarbs)} g · Sel{" "}
-                {frenchNumber(values.productSalt)} g
-              </p>
-            </div>
-            <button type="button" onClick={handleEditProduct} className={BLOCK_ACTION}>
-              Modifier le produit
-            </button>
-          </div>
+          <button type="button" onClick={handleAddProduct} className={BLOCK_ACTION}>
+            Ajouter un produit
+          </button>
         )}
+
+        {settings.products.length > 0 ? (
+          <ul className="mt-3 space-y-2">
+            {settings.products.map((product) => {
+              const selectedIndex = settings.selectedIds.indexOf(product.id);
+              const selected = selectedIndex !== -1;
+              const atMax = settings.selectedIds.length >= MAX_SELECTED_PRODUCTS;
+
+              return (
+                <li key={product.id} className="rounded-xl border border-line bg-surface-2 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="checkbox"
+                      aria-label={`Sélectionner ${product.name}`}
+                      checked={selected}
+                      disabled={!selected && atMax}
+                      onChange={() => handleToggleProduct(product.id)}
+                      className="h-5 w-5 accent-accent"
+                    />
+                    <CerealBarIcon />
+                    <span className="text-sm font-semibold text-ink">{product.name}</span>
+                    <span className={PILL}>{product.type}</span>
+                    {selected ? <span className={PILL}>{productLabel(selectedIndex)}</span> : null}
+                  </div>
+                  <p className="mt-1 text-sm text-muted">
+                    Glucides {frenchNumber(product.carbs)} g · Sel {frenchNumber(product.salt)} g
+                  </p>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {selected ? (
+                      <>
+                        <button
+                          type="button"
+                          aria-label={`Monter ${productLabel(selectedIndex)}`}
+                          disabled={selectedIndex === 0}
+                          onClick={() => handleMoveProduct(product.id, "up")}
+                          className={ROW_ACTION}
+                        >
+                          <Chevron direction="up" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Descendre ${productLabel(selectedIndex)}`}
+                          disabled={selectedIndex === settings.selectedIds.length - 1}
+                          onClick={() => handleMoveProduct(product.id, "down")}
+                          className={ROW_ACTION}
+                        >
+                          <Chevron direction="down" />
+                        </button>
+                      </>
+                    ) : null}
+                    <button
+                      type="button"
+                      aria-label={`Modifier ${product.name}`}
+                      onClick={() => handleEditProduct(product)}
+                      className={ROW_ACTION}
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Supprimer ${product.name}`}
+                      onClick={() => handleDeleteProduct(product.id)}
+                      className={ROW_ACTION}
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+
+        {selectedCount >= MAX_SELECTED_PRODUCTS ? (
+          <p className="mt-3 text-xs text-muted">{MAX_SELECTED_MESSAGE}</p>
+        ) : null}
+
+        {strategy ? (
+          <div className="mt-4">
+            <div className="flex items-start justify-between gap-2">
+              <label htmlFor="nutrition-strategy" className={FIELD_LABEL}>
+                Stratégie d&apos;alimentation
+              </label>
+              <InfoTooltip
+                id="help-strategy"
+                label="Aide : stratégie d'alimentation"
+                title="Stratégie d'alimentation"
+              >
+                {STRATEGY_HELP}
+              </InfoTooltip>
+            </div>
+            <div className="relative">
+              <select
+                id="nutrition-strategy"
+                value={strategy.key}
+                onChange={(event) => handleStrategy(event.target.value)}
+                className={`${FIELD} appearance-none pr-10`}
+              >
+                {strategies.map((entry) => (
+                  <option key={entry.key} value={entry.key}>
+                    {entry.label}
+                  </option>
+                ))}
+              </select>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 20 20"
+                fill="none"
+                className="pointer-events-none absolute top-1/2 right-3 h-5 w-5 -translate-y-1/2 text-muted"
+              >
+                <path
+                  d="M5 7.5 10 12.5 15 7.5"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <p className="mt-1 text-xs text-muted">{strategyText(strategy, labels)}</p>
+          </div>
+        ) : null}
       </section>
 
       <section className={`motion-safe:animate-rise rise-delay-2 ${CARD}`} aria-labelledby="titre-boisson">
@@ -508,70 +838,70 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
           <input
             id="nutrition-drink-enabled"
             type="checkbox"
-            checked={values.drinkEnabled}
-            onChange={(event) => patch({ drinkEnabled: event.target.checked })}
+            checked={settings.drinkEnabled}
+            onChange={(event) => patchSettings({ drinkEnabled: event.target.checked })}
             className="h-5 w-5 accent-accent"
           />
           Ajouter une boisson énergétique
         </label>
 
-        {values.drinkEnabled ? (
+        {settings.drinkEnabled ? (
           openDrink ? (
             <>
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <TextField
                   id="nutrition-drink-brand"
                   label="Marque de la boisson"
-                  value={values.drinkBrand}
-                  error={errorFor("drinkBrand", drinkAttempted)}
-                  onChange={(drinkBrand) => patch({ drinkBrand })}
+                  value={settings.drinkBrand}
+                  error={drinkAttempted ? (drinkErrors.drinkBrand ?? null) : null}
+                  onChange={(drinkBrand) => patchSettings({ drinkBrand })}
                 />
                 <TextField
                   id="nutrition-drink-name"
                   label="Nom de la boisson"
-                  value={values.drinkName}
-                  error={errorFor("drinkName", drinkAttempted)}
-                  onChange={(drinkName) => patch({ drinkName })}
+                  value={settings.drinkName}
+                  error={drinkAttempted ? (drinkErrors.drinkName ?? null) : null}
+                  onChange={(drinkName) => patchSettings({ drinkName })}
                 />
                 <NumberField
                   id="nutrition-drink-concentration"
                   label="Concentration (g/L)"
-                  value={values.drinkConcentration}
+                  value={settings.drinkConcentration}
                   min={DRINK_CONCENTRATION_MIN}
                   max={DRINK_CONCENTRATION_MAX}
                   step={1}
-                  error={errorFor("drinkConcentration", drinkAttempted)}
-                  onChange={(drinkConcentration) => patch({ drinkConcentration })}
+                  error={drinkAttempted ? (drinkErrors.drinkConcentration ?? null) : null}
+                  onChange={(drinkConcentration) => patchSettings({ drinkConcentration })}
                 />
                 <NumberField
                   id="nutrition-drink-kcal"
                   label="Énergie pour 100 g (kcal)"
-                  value={values.drinkKcalPer100}
+                  value={settings.drinkKcalPer100}
                   min={DRINK_KCAL_MIN}
                   max={DRINK_KCAL_MAX}
                   step={1}
-                  error={errorFor("drinkKcalPer100", drinkAttempted)}
-                  onChange={(drinkKcalPer100) => patch({ drinkKcalPer100 })}
+                  error={drinkAttempted ? (drinkErrors.drinkKcalPer100 ?? null) : null}
+                  onChange={(drinkKcalPer100) => patchSettings({ drinkKcalPer100 })}
                 />
                 <NumberField
                   id="nutrition-drink-carbs"
                   label="Glucides pour 100 g (g)"
-                  value={values.drinkCarbsPer100}
+                  value={settings.drinkCarbsPer100}
                   min={0}
                   max={DRINK_CARBS_MAX}
                   step={0.1}
-                  error={errorFor("drinkCarbsPer100", drinkAttempted)}
-                  onChange={(drinkCarbsPer100) => patch({ drinkCarbsPer100 })}
+                  error={drinkAttempted ? (drinkErrors.drinkCarbsPer100 ?? null) : null}
+                  onChange={(drinkCarbsPer100) => patchSettings({ drinkCarbsPer100 })}
                 />
                 <NumberField
                   id="nutrition-drink-salt"
                   label="Sel pour 100 g (g)"
-                  value={values.drinkSaltPer100}
+                  value={settings.drinkSaltPer100}
                   min={DRINK_SALT_MIN}
                   max={DRINK_SALT_MAX}
                   step={0.1}
-                  error={errorFor("drinkSaltPer100", drinkAttempted)}
-                  onChange={(drinkSaltPer100) => patch({ drinkSaltPer100 })}
+                  error={drinkAttempted ? (drinkErrors.drinkSaltPer100 ?? null) : null}
+                  onChange={(drinkSaltPer100) => patchSettings({ drinkSaltPer100 })}
                 />
               </div>
 
@@ -589,13 +919,13 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
                 <div className="flex items-center gap-2">
                   <BottleIcon />
                   <span data-testid="drink-summary-name" className="text-sm font-semibold text-ink">
-                    {values.drinkName}
+                    {settings.drinkName}
                   </span>
                 </div>
                 <p data-testid="drink-summary-details" className="text-sm text-muted">
-                  Glucides {frenchNumber(values.drinkCarbsPer100)} g/100 g · Sel{" "}
-                  {frenchNumber(values.drinkSaltPer100)} g/100 g ·{" "}
-                  {frenchNumber(values.drinkConcentration)} g/L
+                  Glucides {settings.drinkCarbsPer100.replace(".", ",")} g/100 g · Sel{" "}
+                  {settings.drinkSaltPer100.replace(".", ",")} g/100 g ·{" "}
+                  {settings.drinkConcentration.replace(".", ",")} g/L
                 </p>
               </div>
               <button type="button" onClick={handleEditDrink} className={BLOCK_ACTION}>

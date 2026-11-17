@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import NutritionPlanView from "@/components/NutritionPlanView";
-import { NUTRITION_STORAGE_KEY } from "@/lib/nutritionStorage";
+import type { Product } from "@/lib/products";
+import { NUTRITION_STORAGE_KEY, type NutritionSettings } from "@/lib/nutritionStorage";
 
 const navigation = vi.hoisted(() => ({ search: new URLSearchParams() }));
 
@@ -17,15 +18,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("next/link", () => ({
-  default: ({
-    href,
-    children,
-    className,
-  }: {
-    href: string;
-    children: ReactNode;
-    className?: string;
-  }) => (
+  default: ({ href, children, className }: { href: string; children: ReactNode; className?: string }) => (
     <a href={href} className={className}>
       {children}
     </a>
@@ -43,16 +36,34 @@ vi.mock("@/lib/nutrition", async (importOriginal) => {
   };
 });
 
-const STORED_PRODUCT = {
+const BARRE: Product = {
+  id: "barre",
+  brand: "Overstims",
+  name: "Barre endurance",
+  type: "Barre",
+  kcal: 200,
+  carbs: 25,
+  salt: 0.25,
+  weight: 60,
+};
+
+const GEL: Product = {
+  id: "gel",
+  brand: "Overstims",
+  name: "Gel café",
+  type: "Gel",
+  kcal: 100,
+  carbs: 22,
+  salt: 0.1,
+  weight: 35,
+};
+
+const SETTINGS: NutritionSettings = {
   carbCap: "60",
   sodiumCap: "600",
-  productBrand: "Overstims",
-  productName: "Barre endurance",
-  productType: "Barre",
-  productKcal: "200",
-  productCarbs: "25",
-  productSalt: "0.25",
-  productWeight: "60",
+  products: [BARRE, GEL],
+  selectedIds: ["barre", "gel"],
+  strategyKey: "mixte50",
   drinkEnabled: false,
   drinkBrand: "Overstims",
   drinkName: "Boisson énergétique",
@@ -62,10 +73,10 @@ const STORED_PRODUCT = {
   drinkSaltPer100: "3",
 };
 
-function store(overrides: Record<string, unknown> = {}) {
+function store(overrides: Partial<NutritionSettings> = {}) {
   window.localStorage.setItem(
     NUTRITION_STORAGE_KEY,
-    JSON.stringify({ ...STORED_PRODUCT, ...overrides }),
+    JSON.stringify({ ...SETTINGS, ...overrides }),
   );
 }
 
@@ -76,99 +87,73 @@ describe("NutritionPlanView", () => {
     water.override = null;
   });
 
-  it("affiche le rappel, les résultats, les plafonds et la timeline", async () => {
-    store({ drinkEnabled: true });
+  it("affiche le rappel, une tuile par produit, les totaux et la timeline", async () => {
+    store();
 
     render(<NutritionPlanView />);
 
-    expect(await screen.findByTestId("nutrition-units")).toHaveTextContent("3");
-    expect(screen.getByTestId("nutrition-interval")).toHaveTextContent("40");
-    expect(screen.getByTestId("nutrition-drink-volume")).toHaveTextContent(
-      "1200",
-    );
-    expect(screen.getByTestId("nutrition-total-carbs")).toHaveTextContent(
-      "111,0",
-    );
-    expect(screen.getByTestId("nutrition-total-sodium")).toHaveTextContent(
-      "876",
-    );
-    expect(screen.getByTestId("nutrition-rate-carbs")).toHaveTextContent(
-      "55,5",
-    );
-    expect(screen.getByTestId("nutrition-rate-sodium")).toHaveTextContent(
-      "438",
-    );
+    expect(await screen.findByTestId("nutrition-results")).toBeInTheDocument();
+
+    const rappel = within(screen.getByRole("region", { name: "Rappel" }));
+    expect(rappel.getByText("120 min")).toBeInTheDocument();
+    expect(rappel.getByText("Barre endurance · Barre")).toBeInTheDocument();
+    expect(rappel.getByText("Gel café · Gel")).toBeInTheDocument();
+    expect(rappel.getByText("Produit A")).toBeInTheDocument();
+    expect(rappel.getByText("Produit B")).toBeInTheDocument();
+
+    const tiles = screen.getAllByTestId("nutrition-product-result");
+    expect(tiles).toHaveLength(2);
+    expect(tiles[0]).toHaveAttribute("data-product-id", "barre");
+    expect(within(tiles[0]).getByTestId("nutrition-units")).toHaveTextContent("2");
+    expect(tiles[1]).toHaveAttribute("data-product-id", "gel");
+    expect(within(tiles[1]).getByTestId("nutrition-units")).toHaveTextContent("2");
+
+    expect(screen.getByTestId("nutrition-total-carbs")).toHaveTextContent("94,0");
+    expect(screen.getByTestId("nutrition-total-sodium")).toHaveTextContent("280");
+    expect(screen.getByTestId("nutrition-rate-carbs")).toHaveTextContent("47,0");
+    expect(screen.getByTestId("nutrition-rate-sodium")).toHaveTextContent("140");
+    expect(screen.getByText("Facteur limitant : glucides")).toBeInTheDocument();
     expect(screen.queryByTestId("nutrition-warning")).not.toBeInTheDocument();
 
-    expect(
-      within(screen.getByRole("region", { name: "Rappel" })).getByText(
-        "120 min",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Barre endurance · Barre")).toBeInTheDocument();
-    expect(
-      screen.getByText("Boisson énergétique · Dosage 40 g/L"),
-    ).toBeInTheDocument();
-
-    expect(screen.getByTestId("nutrition-cap-carbs")).toHaveTextContent(
-      "Glucides : 55,5 / 60 g/h",
-    );
-    expect(screen.getByTestId("nutrition-cap-sodium")).toHaveTextContent(
-      "Sodium : 438 / 600 mg/h",
-    );
-    expect(screen.getByTestId("nutrition-cap-water")).toHaveTextContent(
-      "Eau : 600 ml/h",
-    );
-    expect(
-      screen.getByText("Repère usuel : 400 à 800 ml/h"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("progressbar", { name: "Glucides par heure" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("progressbar", { name: "Sodium par heure" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("progressbar", { name: "Boisson par heure" }),
-    ).toBeInTheDocument();
-
+    expect(screen.getByTestId("nutrition-cap-carbs")).toHaveTextContent("Glucides : 47,0 / 60 g/h");
+    expect(screen.getByTestId("nutrition-cap-sodium")).toHaveTextContent("Sodium : 140 / 600 mg/h");
+    expect(screen.getByTestId("nutrition-cap-water")).toHaveTextContent("Eau : 0 ml/h");
     expect(screen.getByTestId("nutrition-timeline")).toBeInTheDocument();
-    expect(screen.getByTestId("timeline-recap-solid")).toHaveTextContent(
-      "3 barres",
+    expect(screen.getByRole("link", { name: "Modifier mes données" })).toHaveAttribute(
+      "href",
+      "/?min=120",
     );
-    expect(
-      screen.getByRole("link", { name: "Modifier mes données" }),
-    ).toHaveAttribute("href", "/?min=120");
-    expect(
-      screen.getByText(
-        /Repères généraux, à adapter avec un professionnel de santé/i,
-      ),
-    ).toBeInTheDocument();
   });
 
-  it("présente le solide et le liquide dans deux colonnes de la même grille", async () => {
+  it("déduit la boisson du budget et la présente dans une tuile (exemple 6)", async () => {
     store({ drinkEnabled: true });
 
     render(<NutritionPlanView />);
 
-    const solid = await screen.findByTestId("nutrition-result-solid");
+    const tiles = await screen.findAllByTestId("nutrition-product-result");
+    expect(within(tiles[0]).getByTestId("nutrition-units")).toHaveTextContent("1");
+    expect(within(tiles[1]).getByTestId("nutrition-units")).toHaveTextContent("1");
+
     const liquid = screen.getByTestId("nutrition-result-liquid");
-
-    expect(solid).toHaveTextContent("Solide");
-    expect(solid).toContainElement(screen.getByTestId("nutrition-units"));
-    expect(solid).toContainElement(screen.getByTestId("nutrition-interval"));
-
     expect(liquid).toHaveTextContent("Liquide");
-    expect(liquid).toContainElement(
-      screen.getByTestId("nutrition-drink-volume"),
-    );
     expect(liquid).toHaveTextContent(/1200 ml/);
-    expect(liquid).toHaveTextContent(/8 prises/);
     expect(liquid).toHaveTextContent(/48,0 g de poudre/);
+    expect(screen.getByTestId("nutrition-total-carbs")).toHaveTextContent("83,0");
+    expect(screen.getByTestId("nutrition-total-sodium")).toHaveTextContent("716");
+    expect(screen.getByTestId("nutrition-cap-water")).toHaveTextContent("Eau : 600 ml/h");
+  });
 
-    const grid = solid.parentElement;
-    expect(grid).toBe(liquid.parentElement);
-    expect(grid).toHaveClass("grid", "grid-cols-2", "gap-2");
+  it("calcule uniquement avec la boisson sans solide (exemple 15)", async () => {
+    store({ selectedIds: [], products: [], drinkEnabled: true });
+
+    render(<NutritionPlanView />);
+
+    expect(await screen.findByTestId("nutrition-result-liquid")).toHaveTextContent("Liquide");
+
+    expect(screen.queryAllByTestId("nutrition-product-result")).toHaveLength(0);
+    expect(screen.getByTestId("nutrition-total-carbs")).toHaveTextContent("36,0");
+    expect(screen.getByTestId("nutrition-total-sodium")).toHaveTextContent("576");
+    expect(screen.queryByTestId("nutrition-warning")).not.toBeInTheDocument();
   });
 
   it("affiche « Aucune boisson » et une jauge d'eau vide sans boisson", async () => {
@@ -178,31 +163,15 @@ describe("NutritionPlanView", () => {
 
     const liquid = await screen.findByTestId("nutrition-result-liquid");
     expect(liquid).toHaveTextContent("Aucune boisson");
-    expect(screen.getByTestId("nutrition-cap-water")).toHaveTextContent(
-      "Eau : 0 ml/h",
-    );
-    expect(screen.getByTestId("nutrition-cap-water")).not.toHaveClass(
-      "text-danger",
-    );
-  });
-
-  it("place la jauge d'eau sous la jauge sodium", async () => {
-    store({ drinkEnabled: true });
-
-    render(<NutritionPlanView />);
-
-    const sodium = await screen.findByTestId("nutrition-cap-sodium");
-    const waterGauge = screen.getByTestId("nutrition-cap-water");
-
-    expect(
-      sodium.compareDocumentPosition(waterGauge) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(screen.getByTestId("nutrition-cap-water")).toHaveTextContent("Eau : 0 ml/h");
+    expect(screen.getByTestId("nutrition-cap-water")).not.toHaveClass("text-danger");
   });
 
   it("passe les plafonds en danger quand ils sont dépassés", async () => {
     navigation.search = new URLSearchParams("min=60");
     store({
+      products: [BARRE],
+      selectedIds: ["barre"],
       drinkEnabled: true,
       drinkConcentration: "150",
       drinkCarbsPer100: "90",
@@ -217,15 +186,7 @@ describe("NutritionPlanView", () => {
     expect(
       screen.getByRole("progressbar", { name: "Glucides par heure" }),
     ).toHaveClass("bg-danger");
-    expect(screen.getByTestId("nutrition-cap-sodium")).not.toHaveClass(
-      "text-danger",
-    );
-    expect(screen.getByTestId("nutrition-cap-water")).not.toHaveClass(
-      "text-danger",
-    );
-    expect(screen.getByTestId("nutrition-warning")).toHaveTextContent(
-      "Réduis la concentration de la boisson.",
-    );
+    expect(screen.getByText("Réduis la concentration de la boisson.")).toBeInTheDocument();
   });
 
   it("passe la jauge d'eau en danger en cas de dépassement", async () => {
@@ -237,18 +198,16 @@ describe("NutritionPlanView", () => {
     const gauge = await screen.findByTestId("nutrition-cap-water");
     expect(gauge).toHaveTextContent("Eau : 900 ml/h");
     expect(gauge).toHaveClass("text-danger");
-    expect(
-      screen.getByRole("progressbar", { name: "Boisson par heure" }),
-    ).toHaveClass("bg-danger");
   });
 
   it("affiche « Données introuvables » sans stockage", async () => {
     render(<NutritionPlanView />);
 
     expect(await screen.findByText("Données introuvables")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Revenir au formulaire" }),
-    ).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Revenir au formulaire" })).toHaveAttribute(
+      "href",
+      "/",
+    );
   });
 
   it("affiche « Données introuvables » pour une durée invalide", async () => {
@@ -274,7 +233,7 @@ describe("NutritionPlanView", () => {
 
     expect(help).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("dialog", { name: "Facteur limitant" })).toHaveTextContent(
-      "moins d'unités",
+      "part",
     );
   });
 });

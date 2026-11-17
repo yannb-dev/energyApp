@@ -68,6 +68,42 @@ export function EnergyBarIcon({ className = ICON }: NutritionIconProps) {
   );
 }
 
+/** Icône « gel » : sachet souple avec embout. */
+export function GelIcon({ className = ICON }: NutritionIconProps) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M9 8.5h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10.5 8.5V6.2l1.5-2 1.5 2v2.3"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path d="M9 13h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Icône « pâte de fruit » : petit bloc confit. */
+export function FruitPasteIcon({ className = ICON }: NutritionIconProps) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={className}>
+      <rect x="4" y="7" width="16" height="10" rx="3" stroke="currentColor" strokeWidth="1.7" />
+      <path
+        d="M9 12h6M12 9v6"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 /** Icône gourde de sport : timeline et bloc Liquide. */
 export function FlaskIcon({ className = ICON }: NutritionIconProps) {
   return (

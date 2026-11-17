@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ACTIVITY_LEVELS } from "@/lib/energy";
-import { BMR_HELP, CAPS_HELP, LIMITING_FACTOR_HELP, TDEE_HELP } from "@/lib/helpTexts";
+import { BMR_HELP, CAPS_HELP, LIMITING_FACTOR_HELP, STRATEGY_HELP, TDEE_HELP } from "@/lib/helpTexts";
 import {
   CARB_CAP_RECOMMENDED,
   HYDRATION_CAP_ML_PER_HOUR,
@@ -57,5 +57,18 @@ describe("helpTexts", () => {
     for (const text of [CAPS_HELP, BMR_HELP, TDEE_HELP, LIMITING_FACTOR_HELP]) {
       expect(text).toContain("Information générale, pas un conseil médical.");
     }
+  });
+
+  it("LIMITING_FACTOR_HELP décrit la répartition entre plusieurs produits", () => {
+    expect(LIMITING_FACTOR_HELP).toContain("part");
+    expect(LIMITING_FACTOR_HELP).toContain("produit");
+    expect(LIMITING_FACTOR_HELP).toContain("boisson");
+  });
+
+  it("STRATEGY_HELP explique les stratégies de répartition", () => {
+    expect(STRATEGY_HELP).toContain("stratégie");
+    expect(STRATEGY_HELP).toContain("répart");
+    expect(STRATEGY_HELP).toContain("produits");
+    expect(STRATEGY_HELP).toContain("Information générale, pas un conseil médical.");
   });
 });
