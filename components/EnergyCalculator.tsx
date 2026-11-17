@@ -40,7 +40,7 @@ const FIELD =
 const CHIP =
   "flex h-11 cursor-pointer items-center justify-center rounded-xl border border-line bg-surface-2 text-sm font-medium text-muted transition-colors duration-200 hover:text-ink peer-checked:border-accent peer-checked:bg-accent peer-checked:font-semibold peer-checked:text-canvas peer-focus-visible:ring-2 peer-focus-visible:ring-accent-strong";
 const BUTTON_BASE =
-  "flex h-11 flex-1 items-center justify-center rounded-xl px-4 text-sm font-semibold transition duration-200 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent-strong focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+  "flex h-11 p-3 sm:p-2 flex-1 items-center justify-center rounded-md px-4 text-sm font-semibold transition duration-200 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent-strong focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 const TILE = "rounded-xl border border-line bg-surface-2 p-3";
 
 type EnergyCalculatorProps = {
@@ -441,7 +441,9 @@ export default function EnergyCalculator({
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               <div className={TILE}>
                 <div className="flex items-start justify-between gap-1">
-                  <p className="min-w-0 text-xs text-muted">Dépense journalière</p>
+                  <p className="min-w-0 text-xs text-muted">
+                    Dépense journalière
+                  </p>
                   <InfoTooltip
                     id="help-tdee"
                     label="Aide : dépense journalière"
@@ -459,7 +461,9 @@ export default function EnergyCalculator({
               </div>
               <div className={TILE}>
                 <div className="flex items-start justify-between gap-1">
-                  <p className="min-w-0 text-xs text-muted">Métabolisme de base</p>
+                  <p className="min-w-0 text-xs text-muted">
+                    Métabolisme de base
+                  </p>
                   <InfoTooltip
                     id="help-bmr"
                     label="Aide : métabolisme de base"

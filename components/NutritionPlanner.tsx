@@ -60,15 +60,22 @@ import {
   type ProductField,
   type ProductType,
 } from "@/lib/products";
-import { defaultStrategy, getStrategies, resolveStrategy, strategyText } from "@/lib/strategies";
+import {
+  defaultStrategy,
+  getStrategies,
+  resolveStrategy,
+  strategyText,
+} from "@/lib/strategies";
 
-const CARD = "rounded-2xl border border-line bg-surface p-4 shadow-lg shadow-canvas/60 sm:p-5";
-const CARD_TITLE = "mb-3 text-sm font-semibold uppercase tracking-wide text-muted";
+const CARD =
+  "rounded-2xl border border-line bg-surface p-4 shadow-lg shadow-canvas/60 sm:p-5";
+const CARD_TITLE =
+  "mb-3 text-sm font-semibold uppercase tracking-wide text-muted";
 const FIELD_LABEL = "mb-1 block text-sm font-medium text-ink";
 const FIELD =
   "h-11 w-full rounded-xl border border-line bg-surface-2 px-3 text-base text-ink outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent-strong aria-invalid:border-danger";
 const BUTTON_BASE =
-  "flex h-11 flex-1 items-center justify-center rounded-xl px-4 text-sm font-semibold transition duration-200 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent-strong focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+  "flex h-11 p-3 sm:p-2 flex-1 items-center justify-center rounded-md px-4 text-sm font-semibold transition duration-200 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent-strong focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 const BUTTON_PRIMARY = `${BUTTON_BASE} bg-accent text-canvas hover:bg-accent-strong`;
 const BUTTON_SECONDARY = `${BUTTON_BASE} border border-line text-ink hover:border-accent hover:text-accent-strong`;
 const BLOCK_ACTION =
@@ -108,7 +115,9 @@ function parseDuration(raw: string): number | null {
 }
 
 function toProductType(raw: string): ProductType | "" {
-  return (PRODUCT_TYPES as readonly string[]).includes(raw) ? (raw as ProductType) : "";
+  return (PRODUCT_TYPES as readonly string[]).includes(raw)
+    ? (raw as ProductType)
+    : "";
 }
 
 function isDraftEmpty(draft: ProductDraft): boolean {
@@ -124,14 +133,20 @@ function isDraftEmpty(draft: ProductDraft): boolean {
 }
 
 /** Clé de stratégie cohérente avec le nombre de solides sélectionnés. */
-function strategyKeyFor(selectedIds: string[], current: string | null): string | null {
+function strategyKeyFor(
+  selectedIds: string[],
+  current: string | null,
+): string | null {
   if (selectedIds.length < 2) {
     return null;
   }
   return resolveStrategy(selectedIds.length === 3 ? 3 : 2, current).key;
 }
 
-function withStrategy(settings: NutritionSettings, selectedIds: string[]): NutritionSettings {
+function withStrategy(
+  settings: NutritionSettings,
+  selectedIds: string[],
+): NutritionSettings {
   const strategyKey =
     selectedIds.length < 2
       ? null
@@ -152,7 +167,16 @@ type NumberFieldProps = {
   onChange: (value: string) => void;
 };
 
-function NumberField({ id, label, value, min, max, step, error, onChange }: NumberFieldProps) {
+function NumberField({
+  id,
+  label,
+  value,
+  min,
+  max,
+  step,
+  error,
+  onChange,
+}: NumberFieldProps) {
   return (
     <div>
       <label htmlFor={id} className={FIELD_LABEL}>
@@ -218,7 +242,11 @@ function Chevron({ direction }: { direction: "up" | "down" }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
       <path
-        d={direction === "up" ? "M5 12.5 10 7.5 15 12.5" : "M5 7.5 10 12.5 15 7.5"}
+        d={
+          direction === "up"
+            ? "M5 12.5 10 7.5 15 12.5"
+            : "M5 7.5 10 12.5 15 7.5"
+        }
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"
@@ -328,14 +356,16 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
 
     const kcal = parseDecimal(settings.drinkKcalPer100);
     if (kcal === null) {
-      errors.drinkKcalPer100 = "L'énergie pour 100 g de poudre est obligatoire.";
+      errors.drinkKcalPer100 =
+        "L'énergie pour 100 g de poudre est obligatoire.";
     } else if (kcal < DRINK_KCAL_MIN || kcal > DRINK_KCAL_MAX) {
       errors.drinkKcalPer100 = `L'énergie pour 100 g de poudre : la valeur doit être entre ${DRINK_KCAL_MIN} et ${DRINK_KCAL_MAX} kcal.`;
     }
 
     const carbs = parseDecimal(settings.drinkCarbsPer100);
     if (carbs === null) {
-      errors.drinkCarbsPer100 = "Les glucides pour 100 g de poudre sont obligatoires.";
+      errors.drinkCarbsPer100 =
+        "Les glucides pour 100 g de poudre sont obligatoires.";
     } else if (carbs <= 0 || carbs > DRINK_CARBS_MAX) {
       errors.drinkCarbsPer100 =
         "Les glucides pour 100 g de poudre doivent être supérieurs à 0 et au plus 100 g.";
@@ -355,9 +385,15 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
 
   const duration = parseDuration(minutes);
   const selectedCount = settings.selectedIds.length;
-  const strategies = selectedCount >= 2 ? getStrategies(selectedCount === 3 ? 3 : 2) : [];
-  const strategy = strategies.length > 0 ? resolveStrategy(selectedCount === 3 ? 3 : 2, settings.strategyKey) : null;
-  const labels = settings.selectedIds.map((_, index) => productLabel(index).replace("Produit ", ""));
+  const strategies =
+    selectedCount >= 2 ? getStrategies(selectedCount === 3 ? 3 : 2) : [];
+  const strategy =
+    strategies.length > 0
+      ? resolveStrategy(selectedCount === 3 ? 3 : 2, settings.strategyKey)
+      : null;
+  const labels = settings.selectedIds.map((_, index) =>
+    productLabel(index).replace("Produit ", ""),
+  );
 
   function persist(next: NutritionSettings) {
     setShouldPersist(true);
@@ -400,11 +436,17 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
     }
 
     if (editingId) {
-      return { ...settings, products: updateProduct(settings.products, product) };
+      return {
+        ...settings,
+        products: updateProduct(settings.products, product),
+      };
     }
 
     const products = addProduct(settings.products, product);
-    return withStrategy({ ...settings, products }, toggleSelected(settings.selectedIds, product.id));
+    return withStrategy(
+      { ...settings, products },
+      toggleSelected(settings.selectedIds, product.id),
+    );
   }
 
   function handleSubmitProduct() {
@@ -426,7 +468,9 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
   }
 
   function handleDeleteProduct(id: string) {
-    const selectedIds = settings.selectedIds.filter((current) => current !== id);
+    const selectedIds = settings.selectedIds.filter(
+      (current) => current !== id,
+    );
     persist({
       ...withStrategy(settings, selectedIds),
       products: removeProduct(settings.products, id),
@@ -443,7 +487,10 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
   }
 
   function handleMoveProduct(id: string, direction: "up" | "down") {
-    persist({ ...settings, selectedIds: moveSelected(settings.selectedIds, id, direction) });
+    persist({
+      ...settings,
+      selectedIds: moveSelected(settings.selectedIds, id, direction),
+    });
   }
 
   function handleStrategy(key: string) {
@@ -468,7 +515,8 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
     setDurationAttempted(true);
 
     // Sans produit enregistré, le formulaire ouvert fait foi.
-    const mustValidateDraft = !isDraftEmpty(draft) || settings.products.length === 0;
+    const mustValidateDraft =
+      !isDraftEmpty(draft) || settings.products.length === 0;
 
     if (mustValidateDraft) {
       setProductAttempted(true);
@@ -488,7 +536,10 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
       setFormOpen(false);
     }
 
-    if (Object.keys(capsErrors).length > 0 || Object.keys(drinkErrors).length > 0) {
+    if (
+      Object.keys(capsErrors).length > 0 ||
+      Object.keys(drinkErrors).length > 0
+    ) {
       if (Object.keys(drinkErrors).length > 0) {
         setOpenDrink(true);
       }
@@ -518,7 +569,10 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <section className={`motion-safe:animate-rise ${CARD}`} aria-labelledby="titre-plafond">
+      <section
+        className={`motion-safe:animate-rise ${CARD}`}
+        aria-labelledby="titre-plafond"
+      >
         <div className="flex items-start justify-between gap-2">
           <h2 id="titre-plafond" className={CARD_TITLE}>
             Plafond à respecter
@@ -545,7 +599,8 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
               onChange={(carbCap) => patchSettings({ carbCap })}
             />
             <p className="mt-1 text-xs text-muted">
-              Repère usuel : {CARB_CAP_RECOMMENDED.min} à {CARB_CAP_RECOMMENDED.max} g/h
+              Repère usuel : {CARB_CAP_RECOMMENDED.min} à{" "}
+              {CARB_CAP_RECOMMENDED.max} g/h
             </p>
           </div>
           <div>
@@ -560,7 +615,8 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
               onChange={(sodiumCap) => patchSettings({ sodiumCap })}
             />
             <p className="mt-1 text-xs text-muted">
-              Repère usuel : {SODIUM_CAP_RECOMMENDED.min} à {SODIUM_CAP_RECOMMENDED.max} mg/h
+              Repère usuel : {SODIUM_CAP_RECOMMENDED.min} à{" "}
+              {SODIUM_CAP_RECOMMENDED.max} mg/h
             </p>
           </div>
         </div>
@@ -599,10 +655,16 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
                   <select
                     id="nutrition-product-type"
                     value={draft.type}
-                    onChange={(event) => patchDraft({ type: toProductType(event.target.value) })}
-                    aria-invalid={errorFor("type", productAttempted) ? true : undefined}
+                    onChange={(event) =>
+                      patchDraft({ type: toProductType(event.target.value) })
+                    }
+                    aria-invalid={
+                      errorFor("type", productAttempted) ? true : undefined
+                    }
                     aria-describedby={
-                      errorFor("type", productAttempted) ? "nutrition-product-type-erreur" : undefined
+                      errorFor("type", productAttempted)
+                        ? "nutrition-product-type-erreur"
+                        : undefined
                     }
                     className={`${FIELD} appearance-none pr-10`}
                   >
@@ -629,7 +691,11 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
                   </svg>
                 </div>
                 {errorFor("type", productAttempted) ? (
-                  <p id="nutrition-product-type-erreur" role="alert" className={ERROR_TEXT}>
+                  <p
+                    id="nutrition-product-type-erreur"
+                    role="alert"
+                    className={ERROR_TEXT}
+                  >
                     {errorFor("type", productAttempted)}
                   </p>
                 ) : null}
@@ -677,7 +743,11 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
             </div>
 
             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-              <button type="button" onClick={handleSubmitProduct} className={BLOCK_ACTION}>
+              <button
+                type="button"
+                onClick={handleSubmitProduct}
+                className={BLOCK_ACTION}
+              >
                 Valider le produit
               </button>
               {settings.products.length > 0 ? (
@@ -697,7 +767,11 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
             </div>
           </>
         ) : (
-          <button type="button" onClick={handleAddProduct} className={BLOCK_ACTION}>
+          <button
+            type="button"
+            onClick={handleAddProduct}
+            className={BLOCK_ACTION}
+          >
             Ajouter un produit
           </button>
         )}
@@ -707,10 +781,14 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
             {settings.products.map((product) => {
               const selectedIndex = settings.selectedIds.indexOf(product.id);
               const selected = selectedIndex !== -1;
-              const atMax = settings.selectedIds.length >= MAX_SELECTED_PRODUCTS;
+              const atMax =
+                settings.selectedIds.length >= MAX_SELECTED_PRODUCTS;
 
               return (
-                <li key={product.id} className="rounded-xl border border-line bg-surface-2 p-3">
+                <li
+                  key={product.id}
+                  className="rounded-xl border border-line bg-surface-2 p-3"
+                >
                   <div className="flex flex-wrap items-center gap-2">
                     <input
                       type="checkbox"
@@ -721,12 +799,19 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
                       className="h-5 w-5 accent-accent"
                     />
                     <CerealBarIcon />
-                    <span className="text-sm font-semibold text-ink">{product.name}</span>
+                    <span className="text-sm font-semibold text-ink">
+                      {product.name}
+                    </span>
                     <span className={PILL}>{product.type}</span>
-                    {selected ? <span className={PILL}>{productLabel(selectedIndex)}</span> : null}
+                    {selected ? (
+                      <span className={PILL}>
+                        {productLabel(selectedIndex)}
+                      </span>
+                    ) : null}
                   </div>
                   <p className="mt-1 text-sm text-muted">
-                    Glucides {frenchNumber(product.carbs)} g · Sel {frenchNumber(product.salt)} g
+                    Glucides {frenchNumber(product.carbs)} g · Sel{" "}
+                    {frenchNumber(product.salt)} g
                   </p>
 
                   <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -744,7 +829,9 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
                         <button
                           type="button"
                           aria-label={`Descendre ${productLabel(selectedIndex)}`}
-                          disabled={selectedIndex === settings.selectedIds.length - 1}
+                          disabled={
+                            selectedIndex === settings.selectedIds.length - 1
+                          }
                           onClick={() => handleMoveProduct(product.id, "down")}
                           className={ROW_ACTION}
                         >
@@ -821,12 +908,17 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
                 />
               </svg>
             </div>
-            <p className="mt-1 text-xs text-muted">{strategyText(strategy, labels)}</p>
+            <p className="mt-1 text-xs text-muted">
+              {strategyText(strategy, labels)}
+            </p>
           </div>
         ) : null}
       </section>
 
-      <section className={`motion-safe:animate-rise rise-delay-2 ${CARD}`} aria-labelledby="titre-boisson">
+      <section
+        className={`motion-safe:animate-rise rise-delay-2 ${CARD}`}
+        aria-labelledby="titre-boisson"
+      >
         <h2 id="titre-boisson" className={CARD_TITLE}>
           Boisson
         </h2>
@@ -839,7 +931,9 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
             id="nutrition-drink-enabled"
             type="checkbox"
             checked={settings.drinkEnabled}
-            onChange={(event) => patchSettings({ drinkEnabled: event.target.checked })}
+            onChange={(event) =>
+              patchSettings({ drinkEnabled: event.target.checked })
+            }
             className="h-5 w-5 accent-accent"
           />
           Ajouter une boisson énergétique
@@ -853,14 +947,18 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
                   id="nutrition-drink-brand"
                   label="Marque de la boisson"
                   value={settings.drinkBrand}
-                  error={drinkAttempted ? (drinkErrors.drinkBrand ?? null) : null}
+                  error={
+                    drinkAttempted ? (drinkErrors.drinkBrand ?? null) : null
+                  }
                   onChange={(drinkBrand) => patchSettings({ drinkBrand })}
                 />
                 <TextField
                   id="nutrition-drink-name"
                   label="Nom de la boisson"
                   value={settings.drinkName}
-                  error={drinkAttempted ? (drinkErrors.drinkName ?? null) : null}
+                  error={
+                    drinkAttempted ? (drinkErrors.drinkName ?? null) : null
+                  }
                   onChange={(drinkName) => patchSettings({ drinkName })}
                 />
                 <NumberField
@@ -870,8 +968,14 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
                   min={DRINK_CONCENTRATION_MIN}
                   max={DRINK_CONCENTRATION_MAX}
                   step={1}
-                  error={drinkAttempted ? (drinkErrors.drinkConcentration ?? null) : null}
-                  onChange={(drinkConcentration) => patchSettings({ drinkConcentration })}
+                  error={
+                    drinkAttempted
+                      ? (drinkErrors.drinkConcentration ?? null)
+                      : null
+                  }
+                  onChange={(drinkConcentration) =>
+                    patchSettings({ drinkConcentration })
+                  }
                 />
                 <NumberField
                   id="nutrition-drink-kcal"
@@ -880,8 +984,14 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
                   min={DRINK_KCAL_MIN}
                   max={DRINK_KCAL_MAX}
                   step={1}
-                  error={drinkAttempted ? (drinkErrors.drinkKcalPer100 ?? null) : null}
-                  onChange={(drinkKcalPer100) => patchSettings({ drinkKcalPer100 })}
+                  error={
+                    drinkAttempted
+                      ? (drinkErrors.drinkKcalPer100 ?? null)
+                      : null
+                  }
+                  onChange={(drinkKcalPer100) =>
+                    patchSettings({ drinkKcalPer100 })
+                  }
                 />
                 <NumberField
                   id="nutrition-drink-carbs"
@@ -890,8 +1000,14 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
                   min={0}
                   max={DRINK_CARBS_MAX}
                   step={0.1}
-                  error={drinkAttempted ? (drinkErrors.drinkCarbsPer100 ?? null) : null}
-                  onChange={(drinkCarbsPer100) => patchSettings({ drinkCarbsPer100 })}
+                  error={
+                    drinkAttempted
+                      ? (drinkErrors.drinkCarbsPer100 ?? null)
+                      : null
+                  }
+                  onChange={(drinkCarbsPer100) =>
+                    patchSettings({ drinkCarbsPer100 })
+                  }
                 />
                 <NumberField
                   id="nutrition-drink-salt"
@@ -900,8 +1016,14 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
                   min={DRINK_SALT_MIN}
                   max={DRINK_SALT_MAX}
                   step={0.1}
-                  error={drinkAttempted ? (drinkErrors.drinkSaltPer100 ?? null) : null}
-                  onChange={(drinkSaltPer100) => patchSettings({ drinkSaltPer100 })}
+                  error={
+                    drinkAttempted
+                      ? (drinkErrors.drinkSaltPer100 ?? null)
+                      : null
+                  }
+                  onChange={(drinkSaltPer100) =>
+                    patchSettings({ drinkSaltPer100 })
+                  }
                 />
               </div>
 
@@ -918,17 +1040,27 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <BottleIcon />
-                  <span data-testid="drink-summary-name" className="text-sm font-semibold text-ink">
+                  <span
+                    data-testid="drink-summary-name"
+                    className="text-sm font-semibold text-ink"
+                  >
                     {settings.drinkName}
                   </span>
                 </div>
-                <p data-testid="drink-summary-details" className="text-sm text-muted">
-                  Glucides {settings.drinkCarbsPer100.replace(".", ",")} g/100 g · Sel{" "}
-                  {settings.drinkSaltPer100.replace(".", ",")} g/100 g ·{" "}
+                <p
+                  data-testid="drink-summary-details"
+                  className="text-sm text-muted"
+                >
+                  Glucides {settings.drinkCarbsPer100.replace(".", ",")} g/100 g
+                  · Sel {settings.drinkSaltPer100.replace(".", ",")} g/100 g ·{" "}
                   {settings.drinkConcentration.replace(".", ",")} g/L
                 </p>
               </div>
-              <button type="button" onClick={handleEditDrink} className={BLOCK_ACTION}>
+              <button
+                type="button"
+                onClick={handleEditDrink}
+                className={BLOCK_ACTION}
+              >
                 Modifier la boisson
               </button>
             </div>
@@ -943,10 +1075,18 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
       ) : null}
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <button type="button" onClick={handleCalculate} className={BUTTON_PRIMARY}>
+        <button
+          type="button"
+          onClick={handleCalculate}
+          className={BUTTON_PRIMARY}
+        >
           Calculer ma nutrition
         </button>
-        <button type="button" onClick={handleReset} className={BUTTON_SECONDARY}>
+        <button
+          type="button"
+          onClick={handleReset}
+          className={BUTTON_SECONDARY}
+        >
           Réinitialiser la nutrition
         </button>
       </div>

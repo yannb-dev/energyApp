@@ -40,7 +40,7 @@ export const TDEE_HELP =
 
 /** Aide du « Facteur limitant » : décrit le double calcul de `computeMultiProductPlan`. */
 export const LIMITING_FACTOR_HELP =
-  "Le nombre d'unités est calculé deux fois pour chaque produit : pour respecter le plafond de " +
+  "La priorité est toujours donnée à la boisson énergétique quand elle est sélectionné. Le nombre d'unités est calculé deux fois pour chaque produit : pour respecter le plafond de " +
   "glucides et celui de sodium. Le budget est d'abord diminué de la boisson, puis partagé " +
   "entre les produits selon la stratégie choisie. Le facteur limitant est celui du produit " +
   "qui donne le moins d'unités par rapport à sa part. " +

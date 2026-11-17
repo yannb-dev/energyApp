@@ -15,8 +15,16 @@ describe("getStrategies — table à 2 solides", () => {
   const strategies = getStrategies(2);
 
   it("propose les trois stratégies de la SPEC", () => {
-    expect(strategies.map((strategy) => strategy.key)).toEqual(["mixte50", "mixte75", "variable"]);
-    expect(strategies.map((strategy) => strategy.label)).toEqual(["mixte50%", "mixte75%", "variable"]);
+    expect(strategies.map((strategy) => strategy.key)).toEqual([
+      "mixte50",
+      "mixte75",
+      "variable",
+    ]);
+    expect(strategies.map((strategy) => strategy.label)).toEqual([
+      "50% A - 50% B",
+      "75% A - 25% B",
+      "Alternance A - B",
+    ]);
     expect(strategies.map((strategy) => strategy.shares)).toEqual([
       [50, 50],
       [75, 25],
@@ -30,7 +38,9 @@ describe("getStrategies — table à 2 solides", () => {
   });
 
   it("garde des clés uniques dans la table", () => {
-    expect(new Set(strategies.map((strategy) => strategy.key)).size).toBe(strategies.length);
+    expect(new Set(strategies.map((strategy) => strategy.key)).size).toBe(
+      strategies.length,
+    );
   });
 });
 
@@ -38,11 +48,15 @@ describe("getStrategies — table à 3 solides", () => {
   const strategies = getStrategies(3);
 
   it("propose les trois stratégies de la SPEC", () => {
-    expect(strategies.map((strategy) => strategy.key)).toEqual(["mixte33", "mixte50", "variable"]);
-    expect(strategies.map((strategy) => strategy.label)).toEqual([
-      "mixte33%",
-      "mixte75%",
+    expect(strategies.map((strategy) => strategy.key)).toEqual([
+      "mixte33",
+      "mixte50",
       "variable",
+    ]);
+    expect(strategies.map((strategy) => strategy.label)).toEqual([
+      "Répartition équitable A - B- C",
+      "50% A - 25% B - 25% C",
+      "Alternance A - B - C",
     ]);
     expect(strategies.map((strategy) => strategy.shares)).toEqual([
       [33, 33, 34],
@@ -57,7 +71,9 @@ describe("getStrategies — table à 3 solides", () => {
   });
 
   it("garde des clés uniques dans la table", () => {
-    expect(new Set(strategies.map((strategy) => strategy.key)).size).toBe(strategies.length);
+    expect(new Set(strategies.map((strategy) => strategy.key)).size).toBe(
+      strategies.length,
+    );
   });
 });
 
@@ -75,16 +91,26 @@ describe("getStrategies — un seul solide", () => {
 describe("strategyText", () => {
   it("décrit la répartition à deux produits (exemples 2 à 4)", () => {
     const [mixte50, mixte75, variable] = getStrategies(2);
-    expect(strategyText(mixte50, LABELS)).toBe("Répartition équitable, A puis B");
+    expect(strategyText(mixte50, LABELS)).toBe(
+      "Répartition équitable, A puis B",
+    );
     expect(strategyText(mixte75, LABELS)).toBe("75 % de A et 25 % de B");
-    expect(strategyText(variable, LABELS)).toBe("Un produit différent une fois sur deux");
+    expect(strategyText(variable, LABELS)).toBe(
+      "Un produit différent une fois sur deux",
+    );
   });
 
   it("décrit la répartition à trois produits (exemple 5)", () => {
     const [mixte33, mixte50, variable] = getStrategies(3);
-    expect(strategyText(mixte33, LABELS)).toBe("Répartition équitable, A, puis B, puis C");
-    expect(strategyText(mixte50, LABELS)).toBe("50 % de A, 25 % de B et 25 % de C");
-    expect(strategyText(variable, LABELS)).toBe("Un produit différent une fois sur trois");
+    expect(strategyText(mixte33, LABELS)).toBe(
+      "Répartition équitable, A, puis B, puis C",
+    );
+    expect(strategyText(mixte50, LABELS)).toBe(
+      "50 % de A, 25 % de B et 25 % de C",
+    );
+    expect(strategyText(variable, LABELS)).toBe(
+      "Un produit différent une fois sur trois",
+    );
   });
 
   it("génère le texte à partir des labels fournis", () => {
@@ -113,7 +139,9 @@ describe("strategy par défaut", () => {
   });
 
   it("revient à la première stratégie à 3 solides (exemple 11)", () => {
-    expect(resolveStrategy(3, defaultStrategy(3).key).shares).toEqual([33, 33, 34]);
+    expect(resolveStrategy(3, defaultStrategy(3).key).shares).toEqual([
+      33, 33, 34,
+    ]);
     expect(resolveStrategy(3, null).shares).toEqual([33, 33, 34]);
   });
 });

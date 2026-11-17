@@ -20,15 +20,45 @@ export const SINGLE_STRATEGY: Strategy = {
 };
 
 const TWO_PRODUCTS: Strategy[] = [
-  { key: "mixte50", label: "mixte50%", shares: [50, 50], order: "sequence" },
-  { key: "mixte75", label: "mixte75%", shares: [75, 25], order: "sequence" },
-  { key: "variable", label: "variable", shares: [50, 50], order: "alternate" },
+  {
+    key: "mixte50",
+    label: "50% A - 50% B",
+    shares: [50, 50],
+    order: "sequence",
+  },
+  {
+    key: "mixte75",
+    label: "75% A - 25% B",
+    shares: [75, 25],
+    order: "sequence",
+  },
+  {
+    key: "variable",
+    label: "Alternance A - B",
+    shares: [50, 50],
+    order: "alternate",
+  },
 ];
 
 const THREE_PRODUCTS: Strategy[] = [
-  { key: "mixte33", label: "mixte33%", shares: [33, 33, 34], order: "sequence" },
-  { key: "mixte50", label: "mixte75%", shares: [50, 25, 25], order: "sequence" },
-  { key: "variable", label: "variable", shares: [33, 33, 34], order: "alternate" },
+  {
+    key: "mixte33",
+    label: "Répartition équitable A - B- C",
+    shares: [33, 33, 34],
+    order: "sequence",
+  },
+  {
+    key: "mixte50",
+    label: "50% A - 25% B - 25% C",
+    shares: [50, 25, 25],
+    order: "sequence",
+  },
+  {
+    key: "variable",
+    label: "Alternance A - B - C",
+    shares: [33, 33, 34],
+    order: "alternate",
+  },
 ];
 
 /** Stratégies disponibles pour un nombre de solides sélectionnés. */
@@ -48,7 +78,10 @@ export function defaultStrategy(count: 1 | 2 | 3): Strategy {
 }
 
 /** Stratégie enregistrée si elle existe encore pour ce nombre de solides, sinon défaut. */
-export function resolveStrategy(count: 1 | 2 | 3, key: string | null): Strategy {
+export function resolveStrategy(
+  count: 1 | 2 | 3,
+  key: string | null,
+): Strategy {
   if (count === 1) {
     return SINGLE_STRATEGY;
   }
