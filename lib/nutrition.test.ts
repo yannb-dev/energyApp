@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import type { Product } from "@/lib/products";
 import {
+  buildMultiProductTimeline,
   buildNutritionTimeline,
   CARB_CAP_DEFAULT_G_PER_HOUR,
   CARB_CAP_MAX,
@@ -8,6 +10,7 @@ import {
   CARB_CAP_RECOMMENDED,
   computeCapUsage,
   computeHydrationRate,
+  computeMultiProductPlan,
   computeNutritionPlan,
   DEFAULT_NUTRITION_VALUES,
   DRINK_INTERVAL_MINUTES,
@@ -26,6 +29,8 @@ import {
   WARNING_DRINK_CONCENTRATION,
   WARNING_NO_UNIT_FITS,
   validateNutritionInputs,
+  type MultiProductInput,
+  type MultiTimelineInput,
   type NutritionFormValues,
 } from "@/lib/nutrition";
 
@@ -480,5 +485,293 @@ describe("plafond hydrique et axe vertical", () => {
     const usage = computeCapUsage(900, HYDRATION_CAP_ML_PER_HOUR);
     expect(usage.ratio).toBeCloseTo(1.2, 6);
     expect(usage.exceeded).toBe(true);
+  });
+});
+
+/** Produits de référence des cas multi-produits. */
+const BARRE: Product = {
+  id: "barre",
+  brand: "Overstims",
+  name: "Barre endurance",
+  type: "Barre",
+  kcal: 200,
+  carbs: 25,
+  salt: 0.25,
+  weight: 60,
+};
+
+const GEL: Product = {
+  id: "gel",
+  brand: "Overstims",
+  name: "Gel café",
+  type: "Gel",
+  kcal: 100,
+  carbs: 22,
+  salt: 0.1,
+  weight: 35,
+};
+
+const PATE: Product = {
+  id: "pate",
+  brand: "Baovola",
+  name: "Pâte pomme",
+  type: "Pâte de fruit",
+  kcal: 90,
+  carbs: 18,
+  salt: 0,
+  weight: 25,
+};
+
+const DRINK = { concentration: 40, kcalPer100: 380, carbsPer100: 75, saltPer100: 3 };
+
+function multi(overrides: Partial<MultiProductInput> = {}): MultiProductInput {
+  return {
+    carbCap: 60,
+    sodiumCap: 600,
+    minutes: 120,
+    products: [BARRE],
+    shares: [100],
+    drink: null,
+    ...overrides,
+  };
+}
+
+function itemUnits(plan: ReturnType<typeof computeMultiProductPlan>, productId: string): number {
+  return plan.items.find((item) => item.productId === productId)?.units ?? -1;
+}
+
+describe("computeMultiProductPlan — exemple 1", () => {
+  it("retrouve le calcul à un produit (non-régression)", () => {
+    const plan = computeMultiProductPlan(multi());
+
+    expect(plan.items).toHaveLength(1);
+    expect(plan.items[0]).toMatchObject({ productId: "barre", units: 4, limitingFactor: "carbs" });
+    expect(plan.limitingFactor).toBe("carbs");
+    expect(plan.totals.carbsG).toBeCloseTo(100, 6);
+    expect(plan.totals.sodiumMg).toBeCloseTo(400, 6);
+    expect(plan.totals.kcal).toBeCloseTo(800, 6);
+    expect(plan.rates.carbsGPerHour).toBeCloseTo(50, 6);
+    expect(plan.warnings).toEqual([]);
+  });
+});
+
+describe("computeMultiProductPlan — exemple 2", () => {
+  const plan = computeMultiProductPlan(
+    multi({ products: [BARRE, GEL], shares: [50, 50] }),
+  );
+
+  it("partage le budget en deux", () => {
+    expect(itemUnits(plan, "barre")).toBe(2);
+    expect(itemUnits(plan, "gel")).toBe(2);
+  });
+
+  it("additionne les apports des deux produits", () => {
+    expect(plan.totals.carbsG).toBeCloseTo(94, 6);
+    expect(plan.totals.sodiumMg).toBeCloseTo(280, 6);
+    expect(plan.totals.kcal).toBeCloseTo(600, 6);
+    expect(plan.rates.carbsGPerHour).toBeCloseTo(47, 6);
+  });
+});
+
+describe("computeMultiProductPlan — exemple 3", () => {
+  it("donne 75 % du budget à A et 25 % à B", () => {
+    const plan = computeMultiProductPlan(multi({ products: [BARRE, GEL], shares: [75, 25] }));
+
+    expect(itemUnits(plan, "barre")).toBe(3);
+    expect(itemUnits(plan, "gel")).toBe(1);
+    expect(plan.totals.carbsG).toBeCloseTo(97, 6);
+    expect(plan.totals.sodiumMg).toBeCloseTo(340, 6);
+    expect(plan.totals.kcal).toBeCloseTo(700, 6);
+  });
+});
+
+describe("computeMultiProductPlan — exemple 5", () => {
+  const products = [BARRE, GEL, PATE];
+
+  it("répartit en 33/33/34", () => {
+    const plan = computeMultiProductPlan(multi({ products, shares: [33, 33, 34] }));
+
+    expect(itemUnits(plan, "barre")).toBe(1);
+    expect(itemUnits(plan, "gel")).toBe(1);
+    expect(itemUnits(plan, "pate")).toBe(2);
+    expect(plan.totals.carbsG).toBeCloseTo(83, 6);
+    expect(plan.totals.sodiumMg).toBeCloseTo(140, 6);
+    expect(plan.totals.kcal).toBeCloseTo(480, 6);
+  });
+
+  it("répartit en 50/25/25", () => {
+    const plan = computeMultiProductPlan(multi({ products, shares: [50, 25, 25] }));
+
+    expect(itemUnits(plan, "barre")).toBe(2);
+    expect(itemUnits(plan, "gel")).toBe(1);
+    expect(itemUnits(plan, "pate")).toBe(1);
+    expect(plan.totals.carbsG).toBeCloseTo(90, 6);
+    expect(plan.totals.sodiumMg).toBeCloseTo(240, 6);
+    expect(plan.totals.kcal).toBeCloseTo(590, 6);
+  });
+});
+
+describe("computeMultiProductPlan — exemple 6", () => {
+  it("déduit la boisson du budget avant la répartition", () => {
+    const plan = computeMultiProductPlan(
+      multi({ products: [BARRE, GEL], shares: [50, 50], drink: DRINK }),
+    );
+
+    expect(plan.drink?.carbsG).toBeCloseTo(36, 6);
+    expect(plan.drink?.sodiumMg).toBeCloseTo(576, 6);
+    expect(itemUnits(plan, "barre")).toBe(1);
+    expect(itemUnits(plan, "gel")).toBe(1);
+    expect(plan.totals.carbsG).toBeCloseTo(83, 6);
+    expect(plan.totals.sodiumMg).toBeCloseTo(716, 6);
+    expect(plan.totals.kcal).toBeCloseTo(482.4, 6);
+  });
+});
+
+describe("computeMultiProductPlan — exemple 7", () => {
+  it("ne pose aucune limite sodium quand le produit n'en contient pas", () => {
+    const plan = computeMultiProductPlan(multi({ products: [PATE], shares: [100] }));
+
+    expect(itemUnits(plan, "pate")).toBe(6);
+    expect(plan.items[0].limitingFactor).toBe("carbs");
+    expect(plan.totals.sodiumMg).toBe(0);
+  });
+});
+
+describe("computeMultiProductPlan — exemple 8", () => {
+  it("alerte quand aucune unité ne rentre", () => {
+    const barreLourde: Product = { ...BARRE, carbs: 100, weight: 120 };
+    const plan = computeMultiProductPlan(
+      multi({ minutes: 60, products: [barreLourde], shares: [100] }),
+    );
+
+    expect(plan.items[0].units).toBe(0);
+    expect(plan.warnings).toContain(WARNING_NO_UNIT_FITS);
+    expect(plan.totals.carbsG).toBe(0);
+    expect(plan.totals.kcal).toBe(0);
+  });
+
+  it("reste silencieux sur les autres produits quand un seul n'a pas d'unité", () => {
+    const plan = computeMultiProductPlan(
+      multi({ minutes: 60, products: [BARRE, GEL], shares: [50, 50] }),
+    );
+
+    expect(itemUnits(plan, "gel")).toBe(1);
+    expect(plan.warnings).not.toContain(WARNING_NO_UNIT_FITS);
+  });
+});
+
+describe("computeMultiProductPlan — facteur limitant global", () => {
+  it("suit le produit limité par le sodium", () => {
+    const plan = computeMultiProductPlan(multi({ products: [{ ...BARRE, salt: 1 }], shares: [100] }));
+
+    expect(plan.items[0].units).toBe(3);
+    expect(plan.items[0].limitingFactor).toBe("sodium");
+    expect(plan.limitingFactor).toBe("sodium");
+  });
+
+  it("suit le produit qui donne le moins d'unités", () => {
+    const plan = computeMultiProductPlan(
+      multi({ products: [BARRE, { ...GEL, carbs: 35 }], shares: [50, 50] }),
+    );
+
+    expect(itemUnits(plan, "barre")).toBe(2);
+    expect(itemUnits(plan, "gel")).toBe(1);
+    expect(plan.limitingFactor).toBe("carbs");
+  });
+});
+
+describe("computeMultiProductPlan — exemple 15", () => {
+  it("calcule uniquement avec la boisson quand aucun solide n'est sélectionné", () => {
+    const plan = computeMultiProductPlan(multi({ products: [], shares: [], drink: DRINK }));
+
+    expect(plan.items).toEqual([]);
+    expect(plan.totals.carbsG).toBeCloseTo(36, 6);
+    expect(plan.totals.sodiumMg).toBeCloseTo(576, 6);
+    expect(plan.totals.kcal).toBeCloseTo(182.4, 6);
+    expect(plan.rates.carbsGPerHour).toBeCloseTo(18, 6);
+    expect(plan.warnings).not.toContain(WARNING_NO_UNIT_FITS);
+  });
+});
+
+describe("buildMultiProductTimeline — exemple 2", () => {
+  it("consomme A puis B en séquence", () => {
+    const plan = computeMultiProductPlan(multi({ products: [BARRE, GEL], shares: [50, 50] }));
+    const input: MultiTimelineInput = {
+      minutes: 120,
+      carbCap: 60,
+      sodiumCap: 600,
+      products: [BARRE, GEL],
+      items: plan.items,
+      order: "sequence",
+      drink: plan.drink,
+    };
+
+    const timeline = buildMultiProductTimeline(input);
+    const solids = timeline.events.filter((event) => event.kind === "solid");
+
+    expect(solids.map((event) => event.productId)).toEqual(["barre", "barre", "gel", "gel"]);
+    expect(solids.map((event) => event.minute)).toEqual([15, 45, 75, 105]);
+    expect(solids[2].carbsG).toBeCloseTo(22, 6);
+    expect(solids[2].sodiumMg).toBeCloseTo(40, 6);
+    expect(timeline.series[timeline.series.length - 1].carbsG).toBeCloseTo(plan.totals.carbsG, 6);
+  });
+});
+
+describe("buildMultiProductTimeline — exemple 4", () => {
+  it("alterne A, B, A, B", () => {
+    const plan = computeMultiProductPlan(multi({ products: [BARRE, GEL], shares: [50, 50] }));
+    const timeline = buildMultiProductTimeline({
+      minutes: 120,
+      carbCap: 60,
+      sodiumCap: 600,
+      products: [BARRE, GEL],
+      items: plan.items,
+      order: "alternate",
+      drink: plan.drink,
+    });
+    const solids = timeline.events.filter((event) => event.kind === "solid");
+
+    expect(solids.map((event) => event.productId)).toEqual(["barre", "gel", "barre", "gel"]);
+  });
+});
+
+describe("buildMultiProductTimeline — exemple 9", () => {
+  it("inverse l'ordre quand on déplace A et B", () => {
+    const plan = computeMultiProductPlan(multi({ products: [BARRE, GEL], shares: [50, 50] }));
+    const reversed: MultiTimelineInput = {
+      minutes: 120,
+      carbCap: 60,
+      sodiumCap: 600,
+      products: [GEL, BARRE],
+      items: [plan.items[1], plan.items[0]],
+      order: "sequence",
+      drink: plan.drink,
+    };
+
+    const timeline = buildMultiProductTimeline(reversed);
+    const solids = timeline.events.filter((event) => event.kind === "solid");
+
+    expect(solids.map((event) => event.productId)).toEqual(["gel", "gel", "barre", "barre"]);
+  });
+});
+
+describe("buildMultiProductTimeline — boisson", () => {
+  it("place les gorgées et les prises solides dans l'ordre des minutes", () => {
+    const plan = computeMultiProductPlan(multi({ products: [BARRE], drink: DRINK }));
+    const timeline = buildMultiProductTimeline({
+      minutes: 120,
+      carbCap: 60,
+      sodiumCap: 600,
+      products: [BARRE],
+      items: plan.items,
+      order: "sequence",
+      drink: plan.drink,
+    });
+
+    expect(timeline.events.filter((event) => event.kind === "drink")).toHaveLength(8);
+    expect(timeline.events.filter((event) => event.kind === "solid")).toHaveLength(3);
+    const minutes = timeline.events.map((event) => event.minute);
+    expect(minutes).toEqual([...minutes].sort((a, b) => a - b));
+    expect(timeline.capLines.carbsG.to.value).toBeCloseTo(120, 6);
   });
 });

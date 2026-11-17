@@ -38,8 +38,18 @@ export const TDEE_HELP =
   `Inclut l'activité quotidienne habituelle. Coefficients : ${ACTIVITY_COEFFICIENTS}. ` +
   DISCLAIMER;
 
-/** Aide du « Facteur limitant » : décrit le double calcul de `computeNutritionPlan`. */
+/** Aide du « Facteur limitant » : décrit le double calcul de `computeMultiProductPlan`. */
 export const LIMITING_FACTOR_HELP =
-  "Le nombre d'unités est calculé deux fois : pour respecter le plafond de glucides " +
-  "et celui de sodium. Le facteur limitant est celui qui donne le moins d'unités. " +
+  "Le nombre d'unités est calculé deux fois pour chaque produit : pour respecter le plafond de " +
+  "glucides et celui de sodium. Le budget est d'abord diminué de la boisson, puis partagé " +
+  "entre les produits selon la stratégie choisie. Le facteur limitant est celui du produit " +
+  "qui donne le moins d'unités par rapport à sa part. " +
+  DISCLAIMER;
+
+/** Aide du dropdown « Stratégie d'alimentation ». */
+export const STRATEGY_HELP =
+  "La stratégie fixe la part de chaque produit et l'ordre de consommation : en séquence, " +
+  "les unités d'un produit sont prises avant celles du suivant ; en alternance, un produit " +
+  "différent revient à chaque prise. Le calcul répartit le budget de glucides et de sodium " +
+  "entre les produits sélectionnés. " +
   DISCLAIMER;
