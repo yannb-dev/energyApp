@@ -25,6 +25,6 @@ describe("page d'accueil", () => {
     expect(
       screen.getByText(/estimation indicative, non médicale/i),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Durée (minutes)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Distance (km)")).toBeInTheDocument();
   });
 });

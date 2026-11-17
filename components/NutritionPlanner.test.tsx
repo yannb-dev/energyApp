@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import NutritionPlanner from "@/components/NutritionPlanner";
+import type { EffortFormValues } from "@/lib/effort";
 import type { Product } from "@/lib/products";
 import {
   NUTRITION_STORAGE_KEY,
@@ -17,6 +18,13 @@ vi.mock("next/navigation", () => ({
 }));
 
 type User = ReturnType<typeof userEvent.setup>;
+
+/** Effort transmis par le bloc Activité : 10 km à 12 km/h, soit 50 min. */
+const EFFORT: EffortFormValues = {
+  distanceKm: "10",
+  speed: "12",
+  speedUnit: "kmh",
+};
 
 const BARRE: Product = {
   id: "barre",
@@ -138,7 +146,7 @@ describe("NutritionPlanner", () => {
   });
 
   it("affiche les plafonds, la liste de produits, la boisson et les actions", () => {
-    render(<NutritionPlanner minutes="" />);
+    render(<NutritionPlanner minutes="" effort={EFFORT} />);
 
     expect(screen.getByRole("heading", { level: 2, name: "Plafond à respecter" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Produits" })).toBeInTheDocument();
@@ -159,7 +167,7 @@ describe("NutritionPlanner", () => {
   });
 
   it("ajoute un produit, le sélectionne et replie le formulaire", async () => {
-    render(<NutritionPlanner minutes="120" />);
+    render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
     await addProduct(u, { name: "Barre endurance", type: "Barre" });
@@ -172,7 +180,7 @@ describe("NutritionPlanner", () => {
   });
 
   it("garde le formulaire ouvert et affiche les erreurs s'il est incomplet", async () => {
-    render(<NutritionPlanner minutes="120" />);
+    render(<NutritionPlanner minutes="120" effort={EFFORT} />);
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Valider le produit" }));
 
@@ -184,7 +192,7 @@ describe("NutritionPlanner", () => {
   it("rouvre un produit avec « Modifier » et enregistre la modification", async () => {
     window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(SETTINGS));
 
-    render(<NutritionPlanner minutes="120" />);
+    render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
     await u.click(screen.getByRole("button", { name: "Modifier Barre endurance" }));
@@ -202,7 +210,7 @@ describe("NutritionPlanner", () => {
   it("sélectionne et désélectionne un produit", async () => {
     window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(SETTINGS));
 
-    render(<NutritionPlanner minutes="120" />);
+    render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
     const barre = screen.getByRole("checkbox", { name: "Sélectionner Barre endurance" });
@@ -227,7 +235,7 @@ describe("NutritionPlanner", () => {
       }),
     );
 
-    render(<NutritionPlanner minutes="120" />);
+    render(<NutritionPlanner minutes="120" effort={EFFORT} />);
 
     const compote = screen.getByRole("checkbox", { name: "Sélectionner Compote poire" });
     expect(compote).toBeDisabled();
@@ -237,7 +245,7 @@ describe("NutritionPlanner", () => {
   it("déplace un produit avec les chevrons (exemple 9)", async () => {
     window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(SETTINGS));
 
-    render(<NutritionPlanner minutes="120" />);
+    render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
     expect(within(row("Barre endurance")).getByText("Produit A")).toBeInTheDocument();
@@ -258,7 +266,7 @@ describe("NutritionPlanner", () => {
   it("supprime un produit sélectionné et recalcule la stratégie (exemple 10)", async () => {
     window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(SETTINGS));
 
-    render(<NutritionPlanner minutes="120" />);
+    render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
     expect(screen.getByLabelText("Stratégie d'alimentation")).toHaveValue("mixte50");
@@ -273,7 +281,7 @@ describe("NutritionPlanner", () => {
   it("affiche le dropdown de stratégie dès deux solides (exemples 2 à 5)", async () => {
     window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(SETTINGS));
 
-    render(<NutritionPlanner minutes="120" />);
+    render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
     const strategy = screen.getByLabelText("Stratégie d'alimentation");
@@ -289,7 +297,7 @@ describe("NutritionPlanner", () => {
   it("revient à la première stratégie en passant de 2 à 3 solides (exemple 11)", async () => {
     window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(SETTINGS));
 
-    render(<NutritionPlanner minutes="120" />);
+    render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
     await u.selectOptions(screen.getByLabelText("Stratégie d'alimentation"), "variable");
@@ -303,7 +311,7 @@ describe("NutritionPlanner", () => {
   });
 
   it("navigue vers le plan quand tout est valide", async () => {
-    render(<NutritionPlanner minutes="120" />);
+    render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
     await addProduct(u, { name: "Barre endurance", type: "Barre" });
@@ -312,11 +320,28 @@ describe("NutritionPlanner", () => {
 
     await u.click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
 
-    expect(push).toHaveBeenCalledWith("/nutrition?min=120");
+    expect(push).toHaveBeenCalledWith("/nutrition?min=120&km=10&v=12&u=kmh");
+  });
+
+  it("transmet aussi l'effort dans l'URL du plan (exemple 19)", async () => {
+    render(
+      <NutritionPlanner
+        minutes="50"
+        effort={{ distanceKm: "10", speed: "5:00", speedUnit: "minkm" }}
+      />,
+    );
+    const u = userEvent.setup();
+
+    await addProduct(u, { name: "Barre endurance", type: "Barre" });
+    await u.click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
+
+    expect(push).toHaveBeenCalledWith(
+      "/nutrition?min=50&km=10&v=5%3A00&u=minkm",
+    );
   });
 
   it("demande la durée du bloc Activité quand elle manque", async () => {
-    render(<NutritionPlanner minutes="" />);
+    render(<NutritionPlanner minutes="" effort={EFFORT} />);
     const u = userEvent.setup();
 
     await addProduct(u, { name: "Barre endurance", type: "Barre" });
@@ -327,7 +352,7 @@ describe("NutritionPlanner", () => {
   });
 
   it("rouvre le formulaire produit en erreur et ne navigue pas", async () => {
-    render(<NutritionPlanner minutes="120" />);
+    render(<NutritionPlanner minutes="120" effort={EFFORT} />);
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
 
@@ -336,7 +361,7 @@ describe("NutritionPlanner", () => {
   });
 
   it("replie et rouvre la boisson", async () => {
-    render(<NutritionPlanner minutes="120" />);
+    render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
     expect(screen.queryByLabelText("Concentration (g/L)")).not.toBeInTheDocument();
@@ -355,7 +380,7 @@ describe("NutritionPlanner", () => {
   it("hydrate la liste depuis le stockage v2", () => {
     window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(SETTINGS));
 
-    render(<NutritionPlanner minutes="120" />);
+    render(<NutritionPlanner minutes="120" effort={EFFORT} />);
 
     expect(screen.queryByLabelText("Marque")).not.toBeInTheDocument();
     expect(screen.getByText("Barre endurance")).toBeInTheDocument();
@@ -386,7 +411,7 @@ describe("NutritionPlanner", () => {
       }),
     );
 
-    render(<NutritionPlanner minutes="120" />);
+    render(<NutritionPlanner minutes="120" effort={EFFORT} />);
 
     expect(screen.getByText("Compote pomme")).toBeInTheDocument();
     expect(within(row("Compote pomme")).getByText("Pâte de fruit")).toBeInTheDocument();
@@ -397,7 +422,7 @@ describe("NutritionPlanner", () => {
   it("réinitialise les valeurs, la liste et le stockage", async () => {
     window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(SETTINGS));
 
-    render(<NutritionPlanner minutes="120" />);
+    render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
     await u.click(screen.getByRole("button", { name: "Réinitialiser la nutrition" }));
@@ -417,7 +442,7 @@ describe("NutritionPlanner", () => {
       throw new Error("stockage indisponible");
     });
 
-    render(<NutritionPlanner minutes="120" />);
+    render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
     expect(screen.getByLabelText("Marque")).toHaveValue("");
@@ -425,6 +450,6 @@ describe("NutritionPlanner", () => {
     await addProduct(u, { name: "Barre endurance", type: "Barre" });
     await u.click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
 
-    expect(push).toHaveBeenCalledWith("/nutrition?min=120");
+    expect(push).toHaveBeenCalledWith("/nutrition?min=120&km=10&v=12&u=kmh");
   });
 });

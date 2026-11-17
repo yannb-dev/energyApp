@@ -13,6 +13,7 @@ import {
 import InfoTooltip from "@/components/InfoTooltip";
 import NutritionTimeline from "@/components/NutritionTimeline";
 import { parseDecimal } from "@/lib/energy";
+import { validateEffort, type EffortFormValues, type SpeedUnit } from "@/lib/effort";
 import { LIMITING_FACTOR_HELP } from "@/lib/helpTexts";
 import {
   buildMultiProductTimeline,
@@ -71,6 +72,29 @@ function parseDuration(raw: string | null): number | null {
     return null;
   }
   return parsed;
+}
+
+function isSpeedUnit(value: string | null): value is SpeedUnit {
+  return value === "kmh" || value === "minkm";
+}
+
+/** Lien « Modifier mes données » : effort restauré seulement si les trois paramètres sont valides. */
+function effortHref(searchParams: { get(name: string): string | null }): string {
+  const distanceKm = searchParams.get("km");
+  const speed = searchParams.get("v");
+  const unit = searchParams.get("u");
+
+  if (distanceKm === null || speed === null || !isSpeedUnit(unit)) {
+    return "/";
+  }
+
+  const effort: EffortFormValues = { distanceKm, speed, speedUnit: unit };
+  if (Object.keys(validateEffort(effort)).length > 0) {
+    return "/";
+  }
+
+  const search = new URLSearchParams({ km: distanceKm, v: speed, u: unit });
+  return `/?${search.toString()}`;
 }
 
 /** Icône d'un solide selon son type. */
@@ -252,7 +276,7 @@ export default function NutritionPlanView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Link href={`/?min=${minutes}`} className={`motion-safe:animate-rise ${LINK}`}>
+      <Link href={effortHref(searchParams)} className={`motion-safe:animate-rise ${LINK}`}>
         Modifier mes données
       </Link>
 

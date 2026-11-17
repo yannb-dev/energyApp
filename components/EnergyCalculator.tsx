@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import InfoTooltip from "@/components/InfoTooltip";
 import {
@@ -11,13 +11,22 @@ import {
   DEFAULT_ACTIVITY_INDEX,
   HEIGHT_CM_MAX,
   HEIGHT_CM_MIN,
-  MINUTES_MAX,
   validateInputs,
   WEIGHT_KG_MAX,
   WEIGHT_KG_MIN,
   type EnergyField,
   type EnergyFormValues,
 } from "@/lib/energy";
+import {
+  computeEffortDuration,
+  convertSpeed,
+  EMPTY_EFFORT,
+  formatDuration,
+  formatPace,
+  validateEffort,
+  type EffortFormValues,
+  type SpeedUnit,
+} from "@/lib/effort";
 import { BMR_HELP, TDEE_HELP } from "@/lib/helpTexts";
 import { findSport, SPORTS } from "@/lib/sports";
 
@@ -43,37 +52,68 @@ const BUTTON_BASE =
   "flex h-11 p-3 sm:p-2 flex-1 items-center justify-center rounded-md px-4 text-sm font-semibold transition duration-200 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-accent-strong focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 const TILE = "rounded-xl border border-line bg-surface-2 p-3";
 
+/** Affichage : km/h arrondis à 0,1, virgule française, sans zéro inutile. */
+function speedLabelKmh(speedKmh: number): string {
+  return String(Math.round(speedKmh * 10) / 10).replace(".", ",");
+}
+
 type EnergyCalculatorProps = {
-  /** Valeur initiale du champ « Durée (minutes) », relue par la page. */
-  initialMinutes?: string;
-  /** Appelée à chaque saisie de la durée et au Reset (avec une chaîne vide). */
+  /** Effort relu par la page (distance, vitesse ou allure, unité). */
+  initialEffort?: EffortFormValues;
+  /** Appelée avec la durée dérivée, ou une chaîne vide si elle n'est pas calculable. */
   onMinutesChange?: (minutes: string) => void;
+  /** Appelée à chaque changement d'effort pour que la page puisse le transmettre. */
+  onEffortChange?: (effort: EffortFormValues) => void;
 };
 
 export default function EnergyCalculator({
-  initialMinutes = "",
+  initialEffort,
   onMinutesChange,
+  onEffortChange,
 }: EnergyCalculatorProps = {}) {
-  const [values, setValues] = useState<EnergyFormValues>(() => ({
-    ...EMPTY_VALUES,
-    minutes: initialMinutes,
-  }));
+  const [values, setValues] = useState<EnergyFormValues>(EMPTY_VALUES);
+  const [effort, setEffort] = useState<EffortFormValues>(
+    () => initialEffort ?? EMPTY_EFFORT,
+  );
   const [activityIndex, setActivityIndex] = useState(DEFAULT_ACTIVITY_INDEX);
   const [submitted, setSubmitted] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
 
   const activity = ACTIVITY_LEVELS[activityIndex];
   const sport = findSport(values.sportId);
+  const isPace = effort.speedUnit === "minkm";
 
   const errors = useMemo(() => validateInputs(values), [values]);
   const hasErrors = Object.keys(errors).length > 0;
 
+  const effortErrors = useMemo(() => validateEffort(effort), [effort]);
+  const effortHasErrors = Object.keys(effortErrors).length > 0;
+
+  const effortDuration = useMemo(
+    () => computeEffortDuration(effort),
+    [effort],
+  );
+  const derivedMinutes = effortDuration ? String(effortDuration.minutes) : "";
+
+  // La page a besoin de la durée dérivée pour la nutrition et l'URL.
+  useEffect(() => {
+    onMinutesChange?.(derivedMinutes);
+  }, [derivedMinutes, onMinutesChange]);
+
+  useEffect(() => {
+    onEffortChange?.(effort);
+  }, [effort, onEffortChange]);
+
   const results = useMemo(() => {
-    if (hasErrors || !sport) {
+    if (hasErrors || effortHasErrors || !sport) {
       return null;
     }
-    return computeEnergyResults(values, activity.coefficient, sport.met);
-  }, [values, hasErrors, sport, activity.coefficient]);
+    return computeEnergyResults(
+      { ...values, minutes: derivedMinutes },
+      activity.coefficient,
+      sport.met,
+    );
+  }, [values, derivedMinutes, hasErrors, effortHasErrors, sport, activity.coefficient]);
 
   /** Un champ vide n'affiche son erreur qu'après une tentative de calcul. */
   function errorFor(field: EnergyField): string | null {
@@ -87,6 +127,18 @@ export default function EnergyCalculator({
     return message;
   }
 
+  /** Même mécanique pour les champs d'effort : erreur après saisie ou soumission. */
+  function effortError(field: "distanceKm" | "speed"): string | null {
+    const message = effortErrors[field];
+    if (!message) {
+      return null;
+    }
+    if (!submitted && effort[field].trim() === "") {
+      return null;
+    }
+    return message;
+  }
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitted(true);
@@ -94,10 +146,38 @@ export default function EnergyCalculator({
 
   function handleReset() {
     setValues(EMPTY_VALUES);
+    setEffort(EMPTY_EFFORT);
     setActivityIndex(DEFAULT_ACTIVITY_INDEX);
     setSubmitted(false);
     firstFieldRef.current?.focus();
     onMinutesChange?.("");
+  }
+
+  /** Le sport ne change l'unité que si la vitesse est encore vide. */
+  function handleSport(nextSportId: string) {
+    setValues((current) => ({ ...current, sportId: nextSportId }));
+
+    const nextSport = findSport(nextSportId);
+    if (!nextSport) {
+      return;
+    }
+    setEffort((current) =>
+      current.speed.trim() === ""
+        ? { ...current, speedUnit: nextSport.defaultSpeedUnit }
+        : current,
+    );
+  }
+
+  function handleUnitChange(unit: SpeedUnit) {
+    setEffort((current) =>
+      current.speedUnit === unit
+        ? current
+        : {
+            ...current,
+            speedUnit: unit,
+            speed: convertSpeed(current.speed, current.speedUnit, unit),
+          },
+    );
   }
 
   const sexError = errorFor("sex");
@@ -105,7 +185,8 @@ export default function EnergyCalculator({
   const weightError = errorFor("weightKg");
   const heightError = errorFor("heightCm");
   const sportError = errorFor("sportId");
-  const minutesError = errorFor("minutes");
+  const distanceError = effortError("distanceKm");
+  const speedError = effortError("speed");
 
   return (
     <div className="flex flex-col gap-4">
@@ -323,12 +404,7 @@ export default function EnergyCalculator({
               <select
                 id="sport"
                 value={values.sportId}
-                onChange={(event) =>
-                  setValues((current) => ({
-                    ...current,
-                    sportId: event.target.value,
-                  }))
-                }
+                onChange={(event) => handleSport(event.target.value)}
                 aria-invalid={sportError ? true : undefined}
                 aria-describedby={sportError ? "erreur-sport" : undefined}
                 className={`${FIELD} appearance-none pr-10`}
@@ -367,33 +443,111 @@ export default function EnergyCalculator({
           </div>
 
           <div className="mt-3">
-            <label htmlFor="duree" className={FIELD_LABEL}>
-              Durée (minutes)
+            <label htmlFor="distance" className={FIELD_LABEL}>
+              Distance (km)
             </label>
             <input
-              id="duree"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={MINUTES_MAX}
-              step={1}
-              value={values.minutes}
-              onChange={(event) => {
-                const nextMinutes = event.target.value;
-                setValues((current) => ({ ...current, minutes: nextMinutes }));
-                onMinutesChange?.(nextMinutes);
-              }}
-              aria-invalid={minutesError ? true : undefined}
-              aria-describedby={minutesError ? "erreur-duree" : undefined}
+              id="distance"
+              type="text"
+              inputMode="decimal"
+              value={effort.distanceKm}
+              onChange={(event) =>
+                setEffort((current) => ({
+                  ...current,
+                  distanceKm: event.target.value,
+                }))
+              }
+              aria-invalid={distanceError ? true : undefined}
+              aria-describedby={distanceError ? "erreur-distance" : undefined}
               className={FIELD}
             />
-            {minutesError ? (
+            {distanceError ? (
               <p
-                id="erreur-duree"
+                id="erreur-distance"
                 role="alert"
                 className="mt-1 text-sm text-danger"
               >
-                {minutesError}
+                {distanceError}
+              </p>
+            ) : null}
+          </div>
+
+          <fieldset className="mt-3">
+            <legend className={FIELD_LABEL}>Unité de vitesse</legend>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="relative">
+                <input
+                  id="unite-kmh"
+                  type="radio"
+                  name="unite"
+                  value="kmh"
+                  checked={effort.speedUnit === "kmh"}
+                  onChange={() => handleUnitChange("kmh")}
+                  className="peer sr-only"
+                />
+                <label htmlFor="unite-kmh" className={CHIP}>
+                  km/h
+                </label>
+              </div>
+              <div className="relative">
+                <input
+                  id="unite-minkm"
+                  type="radio"
+                  name="unite"
+                  value="minkm"
+                  checked={effort.speedUnit === "minkm"}
+                  onChange={() => handleUnitChange("minkm")}
+                  className="peer sr-only"
+                />
+                <label htmlFor="unite-minkm" className={CHIP}>
+                  min/km
+                </label>
+              </div>
+            </div>
+          </fieldset>
+
+          <div className="mt-3">
+            <label htmlFor="vitesse" className={FIELD_LABEL}>
+              {isPace ? "Allure (min/km)" : "Vitesse (km/h)"}
+            </label>
+            <input
+              id="vitesse"
+              type="text"
+              inputMode={isPace ? "numeric" : "decimal"}
+              placeholder={isPace ? "5:30" : undefined}
+              value={effort.speed}
+              onChange={(event) =>
+                setEffort((current) => ({
+                  ...current,
+                  speed: event.target.value,
+                }))
+              }
+              aria-invalid={speedError ? true : undefined}
+              aria-describedby={speedError ? "erreur-vitesse" : undefined}
+              className={FIELD}
+            />
+            {speedError ? (
+              <p
+                id="erreur-vitesse"
+                role="alert"
+                className="mt-1 text-sm text-danger"
+              >
+                {speedError}
+              </p>
+            ) : null}
+
+            {effortDuration ? (
+              <p
+                role="status"
+                aria-live="polite"
+                data-testid="effort-duration"
+                className="mt-1 text-sm text-muted"
+              >
+                Durée de l&apos;effort : {formatDuration(effortDuration.minutes)}{" "}
+                · soit{" "}
+                {isPace
+                  ? `${speedLabelKmh(effortDuration.speedKmh)} km/h`
+                  : `${formatPace(3600 / effortDuration.speedKmh)} min/km`}
               </p>
             ) : null}
           </div>

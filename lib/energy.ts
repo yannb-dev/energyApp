@@ -44,6 +44,7 @@ export const WEIGHT_KG_MIN = 30;
 export const WEIGHT_KG_MAX = 300;
 export const HEIGHT_CM_MIN = 100;
 export const HEIGHT_CM_MAX = 250;
+/** Conservée pour les autres écrans : la durée est désormais bornée par lib/effort.ts. */
 export const MINUTES_MAX = 1440;
 
 /** Valeurs brutes du formulaire : tout arrive en texte depuis les champs. */
@@ -152,13 +153,8 @@ export function validateInputs(values: EnergyFormValues): FieldErrors {
     errors.sportId = "Choisis un sport.";
   }
 
-  const minutes = parseDecimal(values.minutes);
-  if (minutes === null) {
-    errors.minutes = "La durée est obligatoire.";
-  } else if (minutes <= 0 || minutes > MINUTES_MAX) {
-    errors.minutes = `La durée doit être entre 1 et ${MINUTES_MAX} minutes.`;
-  }
-
+  // La durée n'est plus saisie : elle est dérivée de la distance et de la vitesse,
+  // et validée par validateEffort (lib/effort.ts).
   return errors;
 }
 
