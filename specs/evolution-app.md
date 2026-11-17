@@ -40,41 +40,32 @@ Retirer la saisie du "Temps de l'activité" et la remplacer par deux champs. Un 
 
 ### 3. Possibilité d'ajouter d'autre type de barre et de cumuler barre + gel + compote
 
-Création d'une liste évolutive, l'utilisateur peut ajouter d'autres barres ou cumuler des barres et des gels et une boisson. La liste est classé par ordre de priorité dans le temps avec une priorité à la boisson énergétique quand elle est présente. Des bouton haut bas permettent dans la liste de les déplacer pour appliquer un ordre de priorité.
-Si l'utilisateur ne souhaite pas prioriser, l'application déterminera les prises en fonction du type d'effort et de sa durée. Une case à cocher active cette fonction.
+Création d'une liste évolutive, l'utilisateur peut ajouter d'autres barres ou cumuler des produits solide et/ou une boisson. Réduire le type de produit à 3 "GEL" "BARRE" "PATE FRUIT"
 
-- La liste des types de produit reste identiques.
-- Calcul en dur avec cette répartition :
-  [{
-  durée : < 1h00, intensité : "modéré", barre : 0, compote: 0, pate : 0, gel: 100
-  },
-  {
-  durée : < 1h00, intensité : "intense", barre : 0, compote: 0, pate : 0, gel: 100
-  },
-  {
-  durée : 1h00 => 2h00, intensité : "modéré", barre : 50, compote: 0, pate : 0, gel: 50
-  },
-  {
-  durée : 1h00 => 2h00, intensité : "intense", barre : 30, compote: 0, pate : 0, gel: 70
-  },
-  {
-  durée : 2h00 => 4h00, intensité : "modéré", barre : 70, compote: 0, pate : 0, gel: 30
-  },
-  {
-  durée : 2h00 => 4h00, intensité : "intense", barre : 40, compote: 0, pate : 0, gel: 60
-  },
-  {
-  durée : 4h00 => 6h00, intensité : "modéré", barre : 80, compote: 0, pate : 0, gel: 20
-  },
-  {
-  durée : > 6h00, intensité : "modéré", barre : 100, compote: 0, pate : 0, gel: 0
-  },
-  ]
+> Parcours utilisateur
 
-> ⚠️ _Note Claude : la table a des trous et des ambiguïtés. Aucune règle « intense » au-delà de 2h00. Les bornes se chevauchent (1h00 et 2h00 sont dans deux lignes). « MIXTE50% » et « MIXTE70%BARRE30%GEL » ne disent pas 50 % ou 70 % de quoi : je propose un type `{ barre: number, gel: number }` en pourcentage. Compote et Pâte de fruits n'apparaissent pas dans les règles. À trancher aussi : comment la boisson s'articule avec le plafond glucides._
+- Il ajoute les produits. Il peut modifier et supprimer les produits déjà listé.
+- Il selectionne les produits qu'il souhaite inclure dans son calcul. Chaque produit se retrouve avec un label "Produit A" "Produit B" ect.. L'utilisateur peux déplacer les produits pour attribuer les différentes positions via des chevron haut - bas.
+- En fonction des produits sélectionnés un dropdown apparait (uniquement si deux produits solides sont sélectionnés ) pour définir l'ordre de priorité des produits et définir une stratégie d'alimentation.
+- Le calcul et la répartition se feront à partir de ce choix.
+-
+
+> Table pour définir les ordres de priorité en fonction des produits sélectionnés, recalcul à chaque changement de produit ou selection/deselection :
+
+const PRODUIT_SOLIDE_2 = [
+{label : "mixte50%", content: "Répartition équitable, ${produitA} puis ${produitB}",produitA: "name", produitB: "name", quantiteProduitA: 50, quantiteProduitB: 50, orderBy: first(produitA) }
+{label : "mixte75%", content: "75% de ${produit} et 25% de ${produit}", produitA: "name", produitB: "name", quantiteProduitA: 75, quantiteProduitB: 25, orderBy: first(produitA)}
+{label : "variable", content: "Une produit différent une fois sur deux", produitA: "name", produitB: "name", quantiteProduitA: 50, quantiteProduitB: 50, orderBy: alterne(produitA+produitB)}
+]
+
+const PRODUIT_SOLIDE_3 = [
+{label : "mixte33%", content: "Répartition équitable, ${produitA}, ensuite ${produitB} puis ${produitC}",produitA: "name", produitB: "name", produitC: "name", quantiteProduitA: 33, quantiteProduitB: 33, quantiteProduitC: 33, orderBy: produitA+produitB+produitC }
+{label : "mixte75%", content: "50% de ${produitA} et 25% de ${produitB} et 25% de ${produitC}", produitA: "name", produitB: "name", produitC: "name" quantiteProduitA: 50, quantiteProduitB: 25, quantiteProduitC: 25 orderBy: produitA+produitB+produitC}
+{label : "variable", content: "Une produit différent une fois sur trois", produitA: "name", produitB: "name", produitC: "name", quantiteProduitA: 33, quantiteProduitB: 33, quantiteProduitC: 33, orderBy: alterne(produitA+produitB+produitC)}
+]
 
 > - Le formulaire actuel (`NutritionFormValues`, `lib/nutrition.ts`) gère un seul produit et une boisson optionnelle. Il faut passer à une liste de produits : refactor du modèle et de `lib/nutritionStorage.ts`, avec migration des données déjà stockées.
-> - La case « ne pas prioriser » bascule vers la table de stratégie ci-dessus : le calcul sera à isoler dans `lib/` avec des tests.
+>   Le calcul sera à isoler dans `lib/` avec des tests.
 
 ### 4. Stocker les données utilisateurs en BDD NEON, enregistrer les produits solides, liquides et boissons.
 
