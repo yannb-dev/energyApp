@@ -123,12 +123,11 @@ describe("validateInputs", () => {
     expect(validateInputs({ ...validValues, heightCm: "251" }).heightCm).toMatch(/entre 100 et 250/);
   });
 
-  it("exige une durée supérieure à 0 et au plus 1440 minutes", () => {
-    expect(validateInputs({ ...validValues, minutes: "" }).minutes).toBeTruthy();
-    expect(validateInputs({ ...validValues, minutes: "0" }).minutes).toMatch(/entre 1 et 1440/);
-    expect(validateInputs({ ...validValues, minutes: "-5" }).minutes).toMatch(/entre 1 et 1440/);
-    expect(validateInputs({ ...validValues, minutes: "1441" }).minutes).toMatch(/entre 1 et 1440/);
-    expect(validateInputs({ ...validValues, minutes: "1440" }).minutes).toBeUndefined();
+  it("n'émet plus d'erreur sur la durée : elle vient de validateEffort (exemple 20)", () => {
+    expect(validateInputs({ ...validValues, minutes: "" })).toEqual({});
+    expect(validateInputs({ ...validValues, minutes: "0" })).toEqual({});
+    expect(validateInputs({ ...validValues, minutes: "-5" }).minutes).toBeUndefined();
+    expect(validateInputs({ ...validValues, minutes: "1441" }).minutes).toBeUndefined();
   });
 
   it("exige un sport", () => {
@@ -145,7 +144,7 @@ describe("validateInputs", () => {
       minutes: "",
     });
     expect(Object.keys(errors).sort()).toEqual(
-      ["age", "heightCm", "minutes", "sex", "sportId", "weightKg"].sort(),
+      ["age", "heightCm", "sex", "sportId", "weightKg"].sort(),
     );
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { SPORTS } from "@/lib/sports";
+import { SPEED_UNITS } from "@/lib/effort";
+import { findSport, SPORTS } from "@/lib/sports";
 
 describe("SPORTS", () => {
   it("propose 10 sports", () => {
@@ -52,5 +53,37 @@ describe("SPORTS", () => {
     expect(
       SPORTS.find((sport) => sport.label === "Randonnée (intense)")?.met,
     ).toBe(7.8);
+  });
+});
+
+describe("defaultSpeedUnit", () => {
+  it("propose une unité de vitesse connue pour chaque sport", () => {
+    for (const sport of SPORTS) {
+      expect(SPEED_UNITS).toContain(sport.defaultSpeedUnit);
+    }
+  });
+
+  it("propose des km/h pour le vélo, le ski de randonnée et la randonnée", () => {
+    for (const id of [
+      "velo-route-vtt-modere",
+      "velo-route-vtt-intense",
+      "ski-rando-modere",
+      "ski-rando-intense",
+      "randonnee-modere",
+      "randonnee-intense",
+    ]) {
+      expect(findSport(id)?.defaultSpeedUnit).toBe("kmh");
+    }
+  });
+
+  it("propose une allure pour la course à pied et le trail", () => {
+    for (const id of [
+      "course-modere",
+      "course-intense",
+      "trail-modere",
+      "trail-intense",
+    ]) {
+      expect(findSport(id)?.defaultSpeedUnit).toBe("minkm");
+    }
   });
 });

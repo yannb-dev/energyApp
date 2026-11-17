@@ -29,30 +29,69 @@ describe("HomeContent", () => {
     window.localStorage.clear();
   });
 
-  it("restaure la durée de l'URL dans le bloc Activité", () => {
-    navigation.search = new URLSearchParams("min=120");
+  it("restaure la distance, la vitesse et l'unité de l'URL (exemple 18)", () => {
+    navigation.search = new URLSearchParams("km=10&v=5:00&u=minkm");
 
     render(<HomeContent />);
 
-    expect(screen.getByLabelText("Durée (minutes)")).toHaveValue(120);
+    expect(screen.getByLabelText("Distance (km)")).toHaveValue("10");
+    expect(screen.getByLabelText("Allure (min/km)")).toHaveValue("5:00");
+    expect(screen.getByRole("radio", { name: "min/km" })).toBeChecked();
   });
 
-  it("ignore une durée invalide dans l'URL", () => {
-    navigation.search = new URLSearchParams("min=0");
+  it("ignore les trois paramètres quand l'unité est inconnue (exemple 18)", () => {
+    navigation.search = new URLSearchParams("km=10&v=5:00&u=xx");
 
     render(<HomeContent />);
 
-    expect(screen.getByLabelText("Durée (minutes)")).toHaveValue(null);
+    expect(screen.getByLabelText("Distance (km)")).toHaveValue("");
+    expect(screen.getByLabelText("Vitesse (km/h)")).toHaveValue("");
   });
 
-  it("transmet la durée saisie au calcul de la nutrition", async () => {
+  it("ignore les trois paramètres quand la distance est invalide (exemple 18)", () => {
+    navigation.search = new URLSearchParams("km=abc&v=5:00&u=minkm");
+
+    render(<HomeContent />);
+
+    expect(screen.getByLabelText("Distance (km)")).toHaveValue("");
+    expect(screen.getByLabelText("Vitesse (km/h)")).toHaveValue("");
+  });
+
+  it("ignore les paramètres incomplets et l'ancien paramètre min", () => {
+    navigation.search = new URLSearchParams("km=10&min=120");
+
+    render(<HomeContent />);
+
+    expect(screen.getByLabelText("Distance (km)")).toHaveValue("");
+    expect(screen.getByLabelText("Vitesse (km/h)")).toHaveValue("");
+  });
+
+  it("transmet la durée dérivée et l'effort au calcul de la nutrition (exemple 19)", async () => {
     render(<HomeContent />);
     const u = userEvent.setup();
 
     await fillProduct(u);
-    await u.type(screen.getByLabelText("Durée (minutes)"), "90");
+    await u.type(screen.getByLabelText("Distance (km)"), "10");
+    await u.type(screen.getByLabelText("Vitesse (km/h)"), "12");
     await u.click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
 
-    expect(navigation.push).toHaveBeenCalledWith("/nutrition?min=90");
+    expect(navigation.push).toHaveBeenCalledWith(
+      "/nutrition?min=50&km=10&v=12&u=kmh",
+    );
+  });
+
+  it("transmet une allure encodée dans l'URL du plan", async () => {
+    render(<HomeContent />);
+    const u = userEvent.setup();
+
+    await u.selectOptions(screen.getByLabelText("Sport"), "course-modere");
+    await fillProduct(u);
+    await u.type(screen.getByLabelText("Distance (km)"), "10");
+    await u.type(screen.getByLabelText("Allure (min/km)"), "5:00");
+    await u.click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
+
+    expect(navigation.push).toHaveBeenCalledWith(
+      "/nutrition?min=50&km=10&v=5%3A00&u=minkm",
+    );
   });
 });

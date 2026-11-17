@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import InfoTooltip from "@/components/InfoTooltip";
 import { BottleIcon, CerealBarIcon } from "@/components/NutritionIcons";
 import { parseDecimal } from "@/lib/energy";
+import type { EffortFormValues } from "@/lib/effort";
 import { CAPS_HELP, STRATEGY_HELP } from "@/lib/helpTexts";
 import {
   CARB_CAP_DEFAULT_G_PER_HOUR,
@@ -259,9 +260,14 @@ function Chevron({ direction }: { direction: "up" | "down" }) {
 type NutritionPlannerProps = {
   /** Durée de l'effort lue dans le bloc Activité ; seule source de la durée. */
   minutes: string;
+  /** Effort saisi dans le bloc Activité, transmis au plan pour le lien retour. */
+  effort: EffortFormValues;
 };
 
-export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
+export default function NutritionPlanner({
+  minutes,
+  effort,
+}: NutritionPlannerProps) {
   const router = useRouter();
   const [settings, setSettings] = useState<NutritionSettings>(emptySettings);
   const [shouldPersist, setShouldPersist] = useState(false);
@@ -550,7 +556,13 @@ export default function NutritionPlanner({ minutes }: NutritionPlannerProps) {
       return;
     }
 
-    router.push(`/nutrition?min=${duration}`);
+    const search = new URLSearchParams({
+      min: String(duration),
+      km: effort.distanceKm,
+      v: effort.speed,
+      u: effort.speedUnit,
+    });
+    router.push(`/nutrition?${search.toString()}`);
   }
 
   function handleReset() {

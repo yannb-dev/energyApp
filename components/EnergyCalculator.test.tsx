@@ -6,16 +6,26 @@ import EnergyCalculator from "@/components/EnergyCalculator";
 
 const user = () => userEvent.setup();
 
-async function fillValidProfile() {
-  const u = user();
+/** Profil seul, sans le sport ni l'effort. */
+async function fillProfile(u: ReturnType<typeof userEvent.setup>) {
   await u.click(screen.getByLabelText("Homme"));
   await u.type(screen.getByLabelText("Âge (ans)"), "30");
   await u.type(screen.getByLabelText("Poids (kg)"), "70");
   await u.type(screen.getByLabelText("Taille (cm)"), "175");
+}
+
+/** Profil complet : course à pied, 10 km à 5:00 min/km, soit 50 min. */
+async function fillValidProfile() {
+  const u = user();
+  await fillProfile(u);
   await u.selectOptions(screen.getByLabelText("Sport"), "course-modere");
-  await u.type(screen.getByLabelText("Durée (minutes)"), "30");
+  await u.type(screen.getByLabelText("Distance (km)"), "10");
+  await u.type(screen.getByLabelText("Allure (min/km)"), "5:00");
   return u;
 }
+
+const kmhRadio = () => screen.getByRole("radio", { name: "km/h" });
+const minkmRadio = () => screen.getByRole("radio", { name: "min/km" });
 
 describe("EnergyCalculator", () => {
   it("expose chaque champ avec un label", () => {
@@ -30,7 +40,9 @@ describe("EnergyCalculator", () => {
       screen.getByLabelText("Niveau d'activité physique"),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Sport")).toBeInTheDocument();
-    expect(screen.getByLabelText("Durée (minutes)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Distance (km)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Vitesse (km/h)")).toBeInTheDocument();
+    expect(kmhRadio()).toBeChecked();
     expect(screen.getByRole("button", { name: "Reset" })).toBeInTheDocument();
   });
 
@@ -51,8 +63,8 @@ describe("EnergyCalculator", () => {
 
     expect(screen.getByTestId("bmr")).toHaveTextContent("1649");
     expect(screen.getByTestId("tdee")).toHaveTextContent("2267");
-    expect(screen.getByTestId("effort-kcal")).toHaveTextContent("291");
-    expect(screen.getByTestId("effort-share")).toHaveTextContent("13");
+    expect(screen.getByTestId("effort-kcal")).toHaveTextContent("484");
+    expect(screen.getByTestId("effort-share")).toHaveTextContent("21");
   });
 
   it("affiche la mention d'estimation indicative non médicale", () => {
@@ -84,19 +96,19 @@ describe("EnergyCalculator", () => {
     expect(screen.getByTestId("tdee")).toHaveTextContent("3133");
   });
 
-  it("met à jour les kcal de l'effort quand on change de sport ou de durée", async () => {
+  it("met à jour les kcal de l'effort quand on change de sport ou de distance", async () => {
     render(<EnergyCalculator />);
     const u = await fillValidProfile();
 
-    expect(screen.getByTestId("effort-kcal")).toHaveTextContent("291");
+    expect(screen.getByTestId("effort-kcal")).toHaveTextContent("484");
 
     await u.selectOptions(screen.getByLabelText("Sport"), "Trail (modéré)");
-    expect(screen.getByTestId("effort-kcal")).toHaveTextContent("315");
+    expect(screen.getByTestId("effort-kcal")).toHaveTextContent("525");
 
-    const duration = screen.getByLabelText("Durée (minutes)");
-    await u.clear(duration);
-    await u.type(duration, "60");
-    expect(screen.getByTestId("effort-kcal")).toHaveTextContent("630");
+    const distance = screen.getByLabelText("Distance (km)");
+    await u.clear(distance);
+    await u.type(distance, "20");
+    expect(screen.getByTestId("effort-kcal")).toHaveTextContent("1050");
   });
 
   it("affiche une erreur par champ vide et aucun résultat", async () => {
@@ -109,7 +121,8 @@ describe("EnergyCalculator", () => {
     expect(screen.getByText("Le poids est obligatoire.")).toBeInTheDocument();
     expect(screen.getByText("La taille est obligatoire.")).toBeInTheDocument();
     expect(screen.getByText("Choisis un sport.")).toBeInTheDocument();
-    expect(screen.getByText("La durée est obligatoire.")).toBeInTheDocument();
+    expect(screen.getByText("La distance est obligatoire.")).toBeInTheDocument();
+    expect(screen.getByText("La vitesse est obligatoire.")).toBeInTheDocument();
     expect(screen.queryByTestId("results")).not.toBeInTheDocument();
   });
 
@@ -150,20 +163,163 @@ describe("EnergyCalculator", () => {
       screen.getByText(/La taille doit être entre 100 et 250 cm/),
     ).toBeInTheDocument();
     expect(screen.queryByTestId("results")).not.toBeInTheDocument();
+  });
 
-    const duration = screen.getByLabelText("Durée (minutes)");
-    await u.clear(duration);
-    await u.type(duration, "0");
+  it("affiche les erreurs de distance, de format et de durée calculée", async () => {
+    render(<EnergyCalculator />);
+    const u = await fillValidProfile();
+
+    const distance = screen.getByLabelText("Distance (km)");
+    await u.clear(distance);
+    await u.type(distance, "0");
     expect(
-      screen.getByText(/La durée doit être entre 1 et 1440 minutes/),
+      screen.getByText("La distance doit être entre 0,1 et 1000 km."),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("results")).not.toBeInTheDocument();
+
+    await u.clear(distance);
+    await u.type(distance, "10");
+    expect(screen.getByTestId("results")).toBeInTheDocument();
+
+    const pace = screen.getByLabelText("Allure (min/km)");
+    await u.clear(pace);
+    await u.type(pace, "abc");
+    expect(
+      screen.getByText("L'allure doit être au format mm:ss (ex. 5:30)."),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("results")).not.toBeInTheDocument();
+
+    await u.clear(pace);
+    await u.type(pace, "0:00");
+    expect(
+      screen.getByText("L'allure doit être entre 0:36 et 60:00 min/km."),
+    ).toBeInTheDocument();
+
+    await u.clear(pace);
+    await u.type(pace, "5:00");
+    await u.clear(distance);
+    await u.type(distance, "1000");
+    expect(
+      screen.getByText("La durée calculée doit être entre 1 minute et 24 h."),
     ).toBeInTheDocument();
     expect(screen.queryByTestId("results")).not.toBeInTheDocument();
   });
 
-  it("Reset vide les champs, efface les résultats et replace le focus sur le premier champ", async () => {
+  it("signale l'erreur de distance et d'erreur-vitesse avec les bons ids", async () => {
     render(<EnergyCalculator />);
     const u = await fillValidProfile();
+
+    const pace = screen.getByLabelText("Allure (min/km)");
+    await u.clear(pace);
+    await u.type(pace, "abc");
+
+    expect(pace).toHaveAttribute("aria-invalid", "true");
+    expect(pace).toHaveAttribute("aria-describedby", "erreur-vitesse");
+    expect(document.getElementById("erreur-vitesse")).toHaveAttribute(
+      "role",
+      "alert",
+    );
+
+    const distance = screen.getByLabelText("Distance (km)");
+    await u.clear(distance);
+    await u.type(distance, "0");
+    expect(distance).toHaveAttribute("aria-describedby", "erreur-distance");
+    expect(document.getElementById("erreur-distance")).toHaveAttribute(
+      "role",
+      "alert",
+    );
+  });
+
+  it("choisit l'unité selon le sport quand la vitesse est vide (exemple 13)", async () => {
+    render(<EnergyCalculator />);
+    const u = user();
+
+    await u.selectOptions(screen.getByLabelText("Sport"), "course-modere");
+    expect(minkmRadio()).toBeChecked();
+    expect(screen.getByLabelText("Allure (min/km)")).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Vitesse (km/h)"),
+    ).not.toBeInTheDocument();
+
+    await u.selectOptions(
+      screen.getByLabelText("Sport"),
+      "velo-route-vtt-modere",
+    );
+    expect(kmhRadio()).toBeChecked();
+    expect(screen.getByLabelText("Vitesse (km/h)")).toBeInTheDocument();
+  });
+
+  it("conserve l'unité et la valeur saisies quand le sport change (exemple 14)", async () => {
+    render(<EnergyCalculator />);
+    const u = user();
+
+    await u.selectOptions(
+      screen.getByLabelText("Sport"),
+      "velo-route-vtt-modere",
+    );
+    await u.type(screen.getByLabelText("Vitesse (km/h)"), "25");
+
+    await u.selectOptions(screen.getByLabelText("Sport"), "course-modere");
+
+    expect(kmhRadio()).toBeChecked();
+    expect(screen.getByLabelText("Vitesse (km/h)")).toHaveValue("25");
+    expect(
+      screen.queryByLabelText("Allure (min/km)"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("convertit la valeur saisie lors d'une bascule d'unité (exemple 15)", async () => {
+    render(<EnergyCalculator />);
+    const u = user();
+
+    await fillProfile(u);
+    await u.selectOptions(
+      screen.getByLabelText("Sport"),
+      "velo-route-vtt-modere",
+    );
+    await u.type(screen.getByLabelText("Distance (km)"), "10");
+    await u.type(screen.getByLabelText("Vitesse (km/h)"), "12");
+
+    expect(screen.getByTestId("effort-duration")).toHaveTextContent(
+      "Durée de l'effort : 50 min · soit 5:00 min/km",
+    );
+
+    await u.click(minkmRadio());
+
+    expect(screen.getByLabelText("Allure (min/km)")).toHaveValue("5:00");
+    expect(screen.getByTestId("effort-duration")).toHaveTextContent(
+      "Durée de l'effort : 50 min · soit 12 km/h",
+    );
+    expect(screen.getByTestId("effort-kcal")).toHaveTextContent("467");
+  });
+
+  it("affiche la ligne de durée seulement quand elle est calculable (exemple 16)", async () => {
+    const onMinutesChange = vi.fn();
+    render(<EnergyCalculator onMinutesChange={onMinutesChange} />);
+    const u = user();
+
+    expect(screen.queryByTestId("effort-duration")).not.toBeInTheDocument();
+
+    await u.type(screen.getByLabelText("Distance (km)"), "10");
+    await u.type(screen.getByLabelText("Vitesse (km/h)"), "12");
+
+    const status = screen.getByTestId("effort-duration");
+    expect(status).toHaveTextContent("50 min");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(onMinutesChange).toHaveBeenLastCalledWith("50");
+
+    await u.clear(screen.getByLabelText("Distance (km)"));
+
+    expect(screen.queryByTestId("effort-duration")).not.toBeInTheDocument();
+    expect(onMinutesChange).toHaveBeenLastCalledWith("");
+  });
+
+  it("Reset vide les champs, l'effort, la ligne de durée et notifie la page (exemple 17)", async () => {
+    const onMinutesChange = vi.fn();
+    render(<EnergyCalculator onMinutesChange={onMinutesChange} />);
+    const u = await fillValidProfile();
     expect(screen.getByTestId("results")).toBeInTheDocument();
+    expect(screen.getByTestId("effort-duration")).toBeInTheDocument();
 
     await u.click(screen.getByRole("button", { name: "Reset" }));
 
@@ -172,15 +328,19 @@ describe("EnergyCalculator", () => {
     expect(screen.getByLabelText("Âge (ans)")).toHaveValue(null);
     expect(screen.getByLabelText("Poids (kg)")).toHaveValue(null);
     expect(screen.getByLabelText("Taille (cm)")).toHaveValue(null);
-    expect(screen.getByLabelText("Durée (minutes)")).toHaveValue(null);
+    expect(screen.getByLabelText("Distance (km)")).toHaveValue("");
+    expect(screen.getByLabelText("Vitesse (km/h)")).toHaveValue("");
+    expect(kmhRadio()).toBeChecked();
     expect(screen.getByLabelText("Sport")).toHaveValue("");
     expect(screen.getByLabelText("Niveau d'activité physique")).toHaveValue(
       "1",
     );
     expect(screen.getByTestId("activity-label")).toHaveTextContent("Léger");
     expect(screen.queryByTestId("results")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("effort-duration")).not.toBeInTheDocument();
     expect(screen.queryByText("Choisis un sexe.")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Homme")).toHaveFocus();
+    expect(onMinutesChange).toHaveBeenLastCalledWith("");
   });
 
   it("propose une aide « ? » sur le métabolisme de base et la dépense journalière", async () => {
@@ -212,22 +372,24 @@ describe("EnergyCalculator", () => {
     );
   });
 
-  it("préremplit la durée et notifie chaque saisie puis le Reset", async () => {
+  it("préremplit l'effort et notifie chaque changement puis le Reset", async () => {
     const onMinutesChange = vi.fn();
     render(
       <EnergyCalculator
-        initialMinutes="45"
+        initialEffort={{ distanceKm: "10", speed: "12", speedUnit: "kmh" }}
         onMinutesChange={onMinutesChange}
       />,
     );
     const u = user();
 
-    expect(screen.getByLabelText("Durée (minutes)")).toHaveValue(45);
+    expect(screen.getByLabelText("Distance (km)")).toHaveValue("10");
+    expect(screen.getByLabelText("Vitesse (km/h)")).toHaveValue("12");
+    expect(screen.getByTestId("effort-duration")).toHaveTextContent("50 min");
+    expect(onMinutesChange).toHaveBeenLastCalledWith("50");
 
-    const duration = screen.getByLabelText("Durée (minutes)");
-    await u.clear(duration);
-    await u.type(duration, "60");
-    expect(onMinutesChange).toHaveBeenLastCalledWith("60");
+    await u.clear(screen.getByLabelText("Distance (km)"));
+    await u.type(screen.getByLabelText("Distance (km)"), "20");
+    expect(onMinutesChange).toHaveBeenLastCalledWith("100");
 
     await u.click(screen.getByRole("button", { name: "Reset" }));
     expect(onMinutesChange).toHaveBeenLastCalledWith("");

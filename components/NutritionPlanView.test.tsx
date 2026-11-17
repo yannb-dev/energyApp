@@ -121,7 +121,46 @@ describe("NutritionPlanView", () => {
     expect(screen.getByTestId("nutrition-timeline")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Modifier mes données" })).toHaveAttribute(
       "href",
-      "/?min=120",
+      "/",
+    );
+  });
+
+  it("restaure l'effort dans le lien retour quand l'URL le contient (exemple 19)", async () => {
+    navigation.search = new URLSearchParams("min=50&km=10&v=5:00&u=minkm");
+    store();
+
+    render(<NutritionPlanView />);
+
+    await screen.findByTestId("nutrition-results");
+    expect(screen.getByRole("link", { name: "Modifier mes données" })).toHaveAttribute(
+      "href",
+      "/?km=10&v=5%3A00&u=minkm",
+    );
+  });
+
+  it("revient à l'accueil sans effort quand les paramètres sont invalides", async () => {
+    navigation.search = new URLSearchParams("min=120&km=10&v=5:00&u=xx");
+    store();
+
+    render(<NutritionPlanView />);
+
+    await screen.findByTestId("nutrition-results");
+    expect(screen.getByRole("link", { name: "Modifier mes données" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+  });
+
+  it("revient à l'accueil sans effort quand la distance est invalide", async () => {
+    navigation.search = new URLSearchParams("min=120&km=abc&v=5:00&u=minkm");
+    store();
+
+    render(<NutritionPlanView />);
+
+    await screen.findByTestId("nutrition-results");
+    expect(screen.getByRole("link", { name: "Modifier mes données" })).toHaveAttribute(
+      "href",
+      "/",
     );
   });
 

@@ -37,6 +37,7 @@ Retirer la saisie du "Temps de l'activité" et la remplacer par deux champs. Un 
 > - Le sport doit être choisi avant le calcul de durée : vérifier l'ordre des champs.
 > - Validations à prévoir : allure `mm:ss`, vitesse nulle, durée > 24 h.
 > - Les tests existants sur `minutes` seront à adapter. La durée sera aussi dérivée au point 5 (GPX) : garder une seule fonction de calcul.
+> - Un ligne informe l'utilisateur de la durée de l'effort.
 
 ### 3. Possibilité d'ajouter d'autre type de barre et de cumuler barre + gel + compote
 
