@@ -37,7 +37,8 @@ function effortFromSearch(searchParams: {
 
 export default function HomeContent() {
   const searchParams = useSearchParams();
-  // Seul l'effort est restauré depuis l'URL ; le profil repart vide.
+  // Seul l'effort est restauré depuis l'URL ; le profil « Paramètres » est relu
+  // par le calculateur depuis le stockage local (lib/profileStorage.ts, SPEC-06).
   const [effort, setEffort] = useState<EffortFormValues>(() =>
     effortFromSearch(searchParams),
   );

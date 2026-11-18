@@ -28,6 +28,7 @@ import {
   type SpeedUnit,
 } from "@/lib/effort";
 import { BMR_HELP, TDEE_HELP } from "@/lib/helpTexts";
+import { loadProfile, saveProfile } from "@/lib/profileStorage";
 import { findSport, SPORTS } from "@/lib/sports";
 
 const EMPTY_VALUES: EnergyFormValues = {
@@ -38,6 +39,11 @@ const EMPTY_VALUES: EnergyFormValues = {
   sportId: "",
   minutes: "",
 };
+
+/** Champs enregistrés par le bouton « Valider » (le sport et l'effort en sont exclus). */
+const PROFILE_FIELDS = ["sex", "age", "weightKg", "heightCm"] as const;
+
+type ProfileField = (typeof PROFILE_FIELDS)[number];
 
 const CARD =
   "rounded-2xl border border-line bg-surface p-4 shadow-lg shadow-canvas/60 sm:p-5";
@@ -77,7 +83,18 @@ export default function EnergyCalculator({
   );
   const [activityIndex, setActivityIndex] = useState(DEFAULT_ACTIVITY_INDEX);
   const [submitted, setSubmitted] = useState(false);
+  /** Bloc « Paramètres » : true = édition, false = replié après validation. */
+  const [profileOpen, setProfileOpen] = useState(true);
+  /** Une tentative de validation du profil affiche les erreurs des champs vides. */
+  const [profileAttempted, setProfileAttempted] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
+  const ageFieldRef = useRef<HTMLInputElement>(null);
+  const weightFieldRef = useRef<HTMLInputElement>(null);
+  const heightFieldRef = useRef<HTMLInputElement>(null);
+  const sportRef = useRef<HTMLSelectElement>(null);
+  const modifyButtonRef = useRef<HTMLButtonElement>(null);
+  /** Focus à poser après un changement d'état du bloc (l'élément n'existe pas encore). */
+  const pendingFocusRef = useRef<"modify" | "firstField" | null>(null);
 
   const activity = ACTIVITY_LEVELS[activityIndex];
   const sport = findSport(values.sportId);
@@ -104,6 +121,38 @@ export default function EnergyCalculator({
     onEffortChange?.(effort);
   }, [effort, onEffortChange]);
 
+  // Lecture du profil après le montage : jamais pendant le rendu (pas d'écart d'hydratation).
+  useEffect(() => {
+    const stored = loadProfile();
+    if (!stored) {
+      return;
+    }
+    /* eslint-disable react-hooks/set-state-in-effect -- SPEC-06 : hydratation demandée dans un useEffect, pas pendant le rendu */
+    setValues((current) => ({
+      ...current,
+      sex: stored.sex,
+      age: stored.age,
+      weightKg: stored.weightKg,
+      heightCm: stored.heightCm,
+    }));
+    setActivityIndex(stored.activityIndex);
+    setProfileOpen(false);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+
+  // Focus différé : la cible vient d'apparaître (bloc replié ou rouvert).
+  useEffect(() => {
+    const target = pendingFocusRef.current;
+    if (target === "modify" && !profileOpen) {
+      pendingFocusRef.current = null;
+      modifyButtonRef.current?.focus();
+    }
+    if (target === "firstField" && profileOpen) {
+      pendingFocusRef.current = null;
+      firstFieldRef.current?.focus();
+    }
+  }, [profileOpen]);
+
   const results = useMemo(() => {
     if (hasErrors || effortHasErrors || !sport) {
       return null;
@@ -115,14 +164,17 @@ export default function EnergyCalculator({
     );
   }, [values, derivedMinutes, hasErrors, effortHasErrors, sport, activity.coefficient]);
 
-  /** Un champ vide n'affiche son erreur qu'après une tentative de calcul. */
+  /** Un champ vide n'affiche son erreur qu'après une tentative de calcul ou de validation. */
   function errorFor(field: EnergyField): string | null {
     const message = errors[field];
     if (!message) {
       return null;
     }
-    if (!submitted && values[field].trim() === "") {
-      return null;
+    if (values[field].trim() === "") {
+      const isProfileField = PROFILE_FIELDS.some((profileField) => profileField === field);
+      if (!submitted && !(isProfileField && profileAttempted)) {
+        return null;
+      }
     }
     return message;
   }
@@ -139,17 +191,62 @@ export default function EnergyCalculator({
     return message;
   }
 
+  function focusProfileField(field: ProfileField) {
+    if (field === "sex") {
+      firstFieldRef.current?.focus();
+    } else if (field === "age") {
+      ageFieldRef.current?.focus();
+    } else if (field === "weightKg") {
+      weightFieldRef.current?.focus();
+    } else {
+      heightFieldRef.current?.focus();
+    }
+  }
+
+  /** « Valider » n'enregistre que les 4 champs du profil ; sport et effort ne bloquent pas. */
+  function handleValidateProfile() {
+    setProfileAttempted(true);
+
+    const invalidField = PROFILE_FIELDS.find(
+      (field) => errors[field] !== undefined,
+    );
+    if (invalidField) {
+      focusProfileField(invalidField);
+      return;
+    }
+    if (values.sex !== "male" && values.sex !== "female") {
+      return;
+    }
+
+    saveProfile({
+      sex: values.sex,
+      age: values.age,
+      weightKg: values.weightKg,
+      heightCm: values.heightCm,
+      activityIndex,
+    });
+
+    pendingFocusRef.current = "modify";
+    setProfileOpen(false);
+  }
+
+  /** Rouvre le bloc avec les valeurs courantes ; rien n'est réenregistré sans « Valider ». */
+  function handleEditProfile() {
+    pendingFocusRef.current = "firstField";
+    setProfileOpen(true);
+  }
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitted(true);
   }
 
+  /** Reset : sport, distance et vitesse seulement — le profil et l'état replié sont conservés. */
   function handleReset() {
-    setValues(EMPTY_VALUES);
+    setValues((current) => ({ ...current, sportId: "" }));
     setEffort(EMPTY_EFFORT);
-    setActivityIndex(DEFAULT_ACTIVITY_INDEX);
     setSubmitted(false);
-    firstFieldRef.current?.focus();
+    sportRef.current?.focus();
     onMinutesChange?.("");
   }
 
@@ -199,8 +296,10 @@ export default function EnergyCalculator({
             Paramètres
           </h2>
 
-          <fieldset>
-            <legend className={FIELD_LABEL}>Sexe</legend>
+          {profileOpen ? (
+            <>
+              <fieldset>
+                <legend className={FIELD_LABEL}>Sexe</legend>
             <div className="grid grid-cols-2 gap-2">
               <div className="relative">
                 <input
@@ -249,6 +348,7 @@ export default function EnergyCalculator({
                 Âge (ans)
               </label>
               <input
+                ref={ageFieldRef}
                 id="age"
                 type="number"
                 inputMode="numeric"
@@ -282,6 +382,7 @@ export default function EnergyCalculator({
                 Poids (kg)
               </label>
               <input
+                ref={weightFieldRef}
                 id="poids"
                 type="number"
                 inputMode="decimal"
@@ -315,6 +416,7 @@ export default function EnergyCalculator({
                 Taille (cm)
               </label>
               <input
+                ref={heightFieldRef}
                 id="taille"
                 type="number"
                 inputMode="decimal"
@@ -386,6 +488,28 @@ export default function EnergyCalculator({
               </span>
             </p>
           </div>
+
+              <div className="mt-4 flex">
+                <button
+                  type="button"
+                  onClick={handleValidateProfile}
+                  className={`${BUTTON_BASE} bg-accent text-canvas hover:bg-accent-strong`}
+                >
+                  Valider
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              ref={modifyButtonRef}
+              type="button"
+              aria-expanded={false}
+              onClick={handleEditProfile}
+              className="flex h-11 w-full items-center justify-center rounded-xl border border-line px-4 text-sm font-semibold text-ink transition duration-200 hover:border-accent hover:text-accent-strong focus-visible:ring-2 focus-visible:ring-accent-strong"
+            >
+              Modifier mes paramètres
+            </button>
+          )}
         </section>
 
         <section
@@ -402,6 +526,7 @@ export default function EnergyCalculator({
             </label>
             <div className="relative">
               <select
+                ref={sportRef}
                 id="sport"
                 value={values.sportId}
                 onChange={(event) => handleSport(event.target.value)}
