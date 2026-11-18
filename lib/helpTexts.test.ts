@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ACTIVITY_LEVELS } from "@/lib/energy";
-import { BMR_HELP, CAPS_HELP, LIMITING_FACTOR_HELP, STRATEGY_HELP, TDEE_HELP } from "@/lib/helpTexts";
+import { BMR_HELP, CAPS_HELP, INTENSITY_HELP, LIMITING_FACTOR_HELP, PACING_METHOD_HELP, PMA_HELP, STRATEGY_HELP, TDEE_HELP, VMA_HELP } from "@/lib/helpTexts";
 import {
   CARB_CAP_RECOMMENDED,
   HYDRATION_CAP_ML_PER_HOUR,
@@ -70,5 +70,27 @@ describe("helpTexts", () => {
     expect(STRATEGY_HELP).toContain("répart");
     expect(STRATEGY_HELP).toContain("produits");
     expect(STRATEGY_HELP).toContain("Information générale, pas un conseil médical.");
+  });
+
+  it("VMA_HELP et PMA_HELP sont non vides et restent une information générale", () => {
+    for (const text of [VMA_HELP, PMA_HELP]) {
+      expect(text.length).toBeGreaterThan(0);
+      expect(text).toContain("estimation");
+      expect(text).toContain("Information générale, pas un conseil médical.");
+    }
+  });
+
+  it("INTENSITY_HELP explique le pourcentage de VMA et de PMA", () => {
+    expect(INTENSITY_HELP.length).toBeGreaterThan(0);
+    expect(INTENSITY_HELP).toContain("VMA");
+    expect(INTENSITY_HELP).toContain("PMA");
+    expect(INTENSITY_HELP).toContain("pourcentage");
+  });
+
+  it("PACING_METHOD_HELP décrit les modèles de pente et de puissance", () => {
+    expect(PACING_METHOD_HELP.length).toBeGreaterThan(0);
+    expect(PACING_METHOD_HELP).toContain("Minetti");
+    expect(PACING_METHOD_HELP).toContain("puissance");
+    expect(PACING_METHOD_HELP).toContain("Information générale, pas un conseil médical.");
   });
 });

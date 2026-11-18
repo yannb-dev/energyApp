@@ -16,24 +16,26 @@ Aucune formule de calcul ne change. Aucune base de données, aucun réseau. TDD 
 ```ts
 export const INTENSITY_LEVELS = [
   { id: "endurance", label: "Endurance fondamentale", ratio: 0.6 },
-  { id: "moderate",  label: "Rythme modéré",          ratio: 0.7 },
-  { id: "sustained", label: "Rythme soutenu",         ratio: 0.8 },
-  { id: "race",      label: "Compétition",            ratio: 0.85 },
+  { id: "moderate", label: "Rythme modéré", ratio: 0.7 },
+  { id: "sustained", label: "Rythme soutenu", ratio: 0.8 },
+  { id: "race", label: "Compétition", ratio: 0.85 },
 ] as const;
 export type IntensityId = (typeof INTENSITY_LEVELS)[number]["id"];
-export function findIntensity(id: string): (typeof INTENSITY_LEVELS)[number] | undefined;
+export function findIntensity(
+  id: string,
+): (typeof INTENSITY_LEVELS)[number] | undefined;
 
 export const TERRAIN_TYPES = [
-  { id: "rolling",   label: "Roulant" },
-  { id: "rough",     label: "Accidenté" },
+  { id: "rolling", label: "Roulant" },
+  { id: "rough", label: "Accidenté" },
   { id: "technical", label: "Très technique" },
 ] as const;
 export type TerrainId = (typeof TERRAIN_TYPES)[number]["id"];
 
 export const BIKE_POSITIONS = [
-  { id: "upright", label: "Relevée",      cdA: 0.40 },
-  { id: "hoods",   label: "Mains en bas", cdA: 0.32 },
-  { id: "aero",    label: "Aéro",         cdA: 0.26 },
+  { id: "upright", label: "Relevée", cdA: 0.4 },
+  { id: "hoods", label: "Mains en bas", cdA: 0.32 },
+  { id: "aero", label: "Aéro", cdA: 0.26 },
 ] as const;
 export type BikePositionId = (typeof BIKE_POSITIONS)[number]["id"];
 ```
@@ -42,7 +44,7 @@ Les facteurs de vitesse par terrain sont dans 07.3 (modèle), pas ici : cette co
 
 ### Famille de sport : `lib/sports.ts` (modifier)
 
-Ajouter à `Sport` un champ `family: "run" | "trail" | "bike" | "other"` et le renseigner pour les 10 sports existants : vélo route/VTT → `bike` ; course → `run` ; trail → `trail` ; ski de rando et randonnée → `other`. Ajouter `export function supportsGpx(sport: Sport): boolean` (vrai pour `run`, `trail`, `bike`). Aucun autre champ ni valeur de MET ne change.
+Ajouter à `Sport` un champ `family: "run" | "trail" | "bike" | "other"` et le renseigner pour les 10 sports existants : vélo route/VTT → `bike` ; course → `run` ; trail → `trail` ; ski de rando et randonnée → `other`. Ajouter `export function supportsGpx(sport: Sport): boolean` (vrai pour `run`, `trail`, `bike`). Aucun autre champ ni valeur de MET ne change. Adapter les tests.
 
 ### Stockage : `lib/athleteStorage.ts` (créer)
 
@@ -52,10 +54,10 @@ Clé séparée `kcalapp:athlete:v1` : ne modifie ni `profileStorage.ts` ni ses t
 export const ATHLETE_STORAGE_KEY = "kcalapp:athlete:v1";
 
 export type AthleteSettings = {
-  vmaKmh: string;        // "" si non renseignée
-  pmaWatts: string;      // "" si non renseignée
+  vmaKmh: string; // "" si non renseignée
+  pmaWatts: string; // "" si non renseignée
   hasBike: boolean;
-  bikeKg: string;        // utilisé si hasBike
+  bikeKg: string; // utilisé si hasBike
   bikePosition: BikePositionId;
 };
 
@@ -74,10 +76,10 @@ Bornes (constantes exportées) : `VMA_KMH_MIN = 8`, `VMA_KMH_MAX = 30` ; `PMA_WA
 
 Dans le bloc « Paramètres » (états Édition / Replié de SPEC-06), sous les champs actuels :
 
-| Élément | Règle |
-| --- | --- |
-| « VMA (km/h) » | champ texte `inputMode="decimal"`, optionnel |
-| « PMA (W) » | champ texte `inputMode="numeric"`, optionnel |
+| Élément                  | Règle                                                                                                                              |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| « VMA (km/h) »           | champ texte `inputMode="decimal"`, optionnel                                                                                       |
+| « PMA (W) »              | champ texte `inputMode="numeric"`, optionnel                                                                                       |
 | Case « Ajouter un vélo » | affiche « Poids du vélo (kg) » et « Position aéro » (liste `BIKE_POSITIONS`, défaut « Mains en bas ») ; champs masqués si décochée |
 
 - Sous chaque champ VMA / PMA, un `InfoTooltip` « ? » (cf. point 1 de `evolution-app.md`) explique brièvement le terme et que la valeur est une estimation à ajuster. Textes dans `lib/helpTexts.ts` (modifier : ajouts uniquement), formulés en information générale.

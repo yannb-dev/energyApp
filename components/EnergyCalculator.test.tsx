@@ -3,7 +3,26 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import EnergyCalculator from "@/components/EnergyCalculator";
+import {
+  ATHLETE_STORAGE_KEY,
+  type AthleteSettings,
+} from "@/lib/athleteStorage";
 import { PROFILE_STORAGE_KEY, type ProfileSettings } from "@/lib/profileStorage";
+
+// Le mode GPX est couvert par GpxActivity.test.tsx : ici on ne vérifie que le câblage.
+vi.mock("@/components/GpxActivity", () => ({
+  __esModule: true,
+  GPX_EDIT_SETTINGS_EVENT: "kcalapp:edit-settings",
+  default: ({
+    onMinutesChange,
+  }: {
+    onMinutesChange: (minutes: string) => void;
+  }) => (
+    <button type="button" onClick={() => onMinutesChange("54")}>
+      Simuler la trace
+    </button>
+  ),
+}));
 
 const user = () => userEvent.setup();
 
@@ -22,6 +41,24 @@ function storeProfile(profile: ProfileSettings = PROFILE) {
 
 function storedProfile(): unknown {
   const raw = window.localStorage.getItem(PROFILE_STORAGE_KEY);
+  return raw === null ? null : JSON.parse(raw);
+}
+
+/** Données athlète enregistrées de référence. */
+const ATHLETE: AthleteSettings = {
+  vmaKmh: "16",
+  pmaWatts: "250",
+  hasBike: true,
+  bikeKg: "8",
+  bikePosition: "hoods",
+};
+
+function storeAthlete(athlete: AthleteSettings = ATHLETE) {
+  window.localStorage.setItem(ATHLETE_STORAGE_KEY, JSON.stringify(athlete));
+}
+
+function storedAthlete(): unknown {
+  const raw = window.localStorage.getItem(ATHLETE_STORAGE_KEY);
   return raw === null ? null : JSON.parse(raw);
 }
 
@@ -540,6 +577,191 @@ describe("EnergyCalculator", () => {
       expect(window.localStorage.getItem(PROFILE_STORAGE_KEY)).toBe(saved);
       expect(screen.getByLabelText("Sport")).toHaveFocus();
       expect(onMinutesChange).toHaveBeenLastCalledWith("");
+    });
+  });
+
+  describe("athlète « Paramètres »", () => {
+    it("affiche les champs du vélo seulement quand il est coché (exemple 7)", async () => {
+      render(<EnergyCalculator />);
+      const u = user();
+
+      expect(
+        screen.queryByLabelText("Poids du vélo (kg)"),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Position aéro")).not.toBeInTheDocument();
+
+      await u.click(screen.getByLabelText("Ajouter un vélo"));
+
+      expect(screen.getByLabelText("Poids du vélo (kg)")).toBeInTheDocument();
+      expect(screen.getByLabelText("Position aéro")).toBeInTheDocument();
+      expect(screen.getByLabelText("Position aéro")).toHaveValue("hoods");
+
+      await u.click(screen.getByLabelText("Ajouter un vélo"));
+
+      expect(
+        screen.queryByLabelText("Poids du vélo (kg)"),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Position aéro")).not.toBeInTheDocument();
+    });
+
+    it("bloque l'enregistrement pour une VMA hors bornes (exemple 8)", async () => {
+      render(<EnergyCalculator />);
+      const u = user();
+
+      await fillProfile(u);
+      await u.type(screen.getByLabelText("VMA (km/h)"), "45");
+      await u.click(validateButton());
+
+      expect(
+        screen.getByText("La VMA doit être entre 8 et 30 km/h."),
+      ).toBeInTheDocument();
+      expect(window.localStorage.getItem(ATHLETE_STORAGE_KEY)).toBeNull();
+      expect(window.localStorage.getItem(PROFILE_STORAGE_KEY)).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: "Modifier mes paramètres" }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByLabelText("VMA (km/h)")).toHaveFocus();
+    });
+
+    it("enregistre profil et données athlète puis replie le bloc (exemple 9)", async () => {
+      render(<EnergyCalculator />);
+      const u = user();
+
+      await fillProfile(u);
+      await u.type(screen.getByLabelText("VMA (km/h)"), "16");
+      await u.click(screen.getByLabelText("Ajouter un vélo"));
+      await u.type(screen.getByLabelText("Poids du vélo (kg)"), "8");
+      await u.click(validateButton());
+
+      expect(storedProfile()).not.toBeNull();
+      expect(storedAthlete()).toEqual({
+        vmaKmh: "16",
+        pmaWatts: "",
+        hasBike: true,
+        bikeKg: "8",
+        bikePosition: "hoods",
+      });
+      expect(editButton()).toBeInTheDocument();
+      expect(screen.queryByLabelText("VMA (km/h)")).not.toBeInTheDocument();
+    });
+
+    it("préremplit VMA, PMA et vélo au rechargement (exemple 10)", async () => {
+      storeProfile();
+      storeAthlete({ ...ATHLETE, bikePosition: "aero" });
+      render(<EnergyCalculator />);
+
+      expect(screen.queryByLabelText("VMA (km/h)")).not.toBeInTheDocument();
+
+      await user().click(editButton());
+
+      expect(screen.getByLabelText("VMA (km/h)")).toHaveValue("16");
+      expect(screen.getByLabelText("PMA (W)")).toHaveValue("250");
+      expect(screen.getByLabelText("Ajouter un vélo")).toBeChecked();
+      expect(screen.getByLabelText("Poids du vélo (kg)")).toHaveValue("8");
+      expect(screen.getByLabelText("Position aéro")).toHaveValue("aero");
+    });
+
+    it("replie le bloc avec un profil seul et laisse l'athlète vide (exemple 11)", async () => {
+      storeProfile();
+      render(<EnergyCalculator />);
+
+      expect(editButton()).toHaveAttribute("aria-expanded", "false");
+
+      await user().click(editButton());
+
+      expect(screen.getByLabelText("VMA (km/h)")).toHaveValue("");
+      expect(screen.getByLabelText("PMA (W)")).toHaveValue("");
+      expect(screen.getByLabelText("Ajouter un vélo")).not.toBeChecked();
+    });
+
+    it("appelle onAthleteChange avec le poids du profil (exemple 12)", async () => {
+      const onAthleteChange = vi.fn();
+      render(<EnergyCalculator onAthleteChange={onAthleteChange} />);
+      const u = user();
+
+      await fillProfile(u);
+      await u.type(screen.getByLabelText("VMA (km/h)"), "16");
+      await u.click(validateButton());
+
+      expect(onAthleteChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ vmaKmh: "16" }),
+        "70",
+      );
+    });
+  });
+
+  describe("mode GPX (SPEC-07.5)", () => {
+    it("n'affiche le sélecteur de mode que pour les sports GPX (exemple 12)", async () => {
+      render(<EnergyCalculator />);
+      const u = user();
+
+      expect(
+        screen.queryByRole("radiogroup", { name: "Mode de saisie" }),
+      ).not.toBeInTheDocument();
+
+      await u.selectOptions(screen.getByLabelText("Sport"), "course-modere");
+
+      expect(
+        screen.getByRole("radiogroup", { name: "Mode de saisie" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("radio", { name: "Saisie manuelle" }),
+      ).toBeChecked();
+
+      await u.selectOptions(screen.getByLabelText("Sport"), "randonnee-modere");
+
+      expect(
+        screen.queryByRole("radiogroup", { name: "Mode de saisie" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("repasse en saisie manuelle quand le sport ne supporte plus le GPX (exemple 12)", async () => {
+      const onMinutesChange = vi.fn();
+      render(<EnergyCalculator onMinutesChange={onMinutesChange} />);
+      const u = user();
+
+      await u.selectOptions(screen.getByLabelText("Sport"), "course-modere");
+      await u.click(screen.getByRole("radio", { name: "Trace GPX" }));
+
+      expect(
+        screen.getByRole("button", { name: "Simuler la trace" }),
+      ).toBeInTheDocument();
+      expect(screen.queryByLabelText("Distance (km)")).not.toBeInTheDocument();
+
+      await u.click(screen.getByRole("button", { name: "Simuler la trace" }));
+      expect(onMinutesChange).toHaveBeenLastCalledWith("54");
+
+      await u.selectOptions(screen.getByLabelText("Sport"), "randonnee-modere");
+
+      expect(screen.getByLabelText("Distance (km)")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Simuler la trace" }),
+      ).not.toBeInTheDocument();
+      expect(onMinutesChange).not.toHaveBeenLastCalledWith("54");
+      expect(onMinutesChange).toHaveBeenLastCalledWith("");
+    });
+
+    it("conserve les champs manuels quand on change de mode (exemple 12)", async () => {
+      render(<EnergyCalculator />);
+      const u = user();
+
+      await u.selectOptions(screen.getByLabelText("Sport"), "course-modere");
+      await u.type(screen.getByLabelText("Distance (km)"), "10");
+
+      await u.click(screen.getByRole("radio", { name: "Trace GPX" }));
+      await u.click(screen.getByRole("radio", { name: "Saisie manuelle" }));
+
+      expect(screen.getByLabelText("Distance (km)")).toHaveValue("10");
+    });
+
+    it("la saisie manuelle calcule exactement comme avant (exemple 13)", async () => {
+      render(<EnergyCalculator />);
+      await fillValidProfile();
+
+      expect(screen.getByTestId("effort-kcal")).toHaveTextContent("484");
+      expect(
+        screen.queryByRole("button", { name: "Simuler la trace" }),
+      ).not.toBeInTheDocument();
     });
   });
 });

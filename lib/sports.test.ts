@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { SPEED_UNITS } from "@/lib/effort";
-import { findSport, SPORTS } from "@/lib/sports";
+import { findSport, SPORTS, supportsGpx } from "@/lib/sports";
 
 describe("SPORTS", () => {
   it("propose 10 sports", () => {
@@ -84,6 +84,33 @@ describe("defaultSpeedUnit", () => {
       "trail-intense",
     ]) {
       expect(findSport(id)?.defaultSpeedUnit).toBe("minkm");
+    }
+  });
+});
+
+/** Sport retrouvé par son libellé, pour les exemples de la SPEC. */
+function sportByLabel(label: string) {
+  const sport = SPORTS.find((item) => item.label === label);
+  if (!sport) {
+    throw new Error(`Sport introuvable : ${label}`);
+  }
+  return sport;
+}
+
+describe("supportsGpx", () => {
+  it("accepte la course à pied, le trail et le vélo (exemple 2)", () => {
+    for (const label of [
+      "Course à pied (modéré)",
+      "Trail (intense)",
+      "Vélo de route - VTT (modéré)",
+    ]) {
+      expect(supportsGpx(sportByLabel(label))).toBe(true);
+    }
+  });
+
+  it("refuse la randonnée et le ski de randonnée (exemple 2)", () => {
+    for (const label of ["Randonnée (modéré)", "Ski de randonnée (intense)"]) {
+      expect(supportsGpx(sportByLabel(label))).toBe(false);
     }
   });
 });
