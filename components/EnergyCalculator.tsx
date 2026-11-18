@@ -27,7 +27,16 @@ import {
   type EffortFormValues,
   type SpeedUnit,
 } from "@/lib/effort";
-import { BMR_HELP, TDEE_HELP } from "@/lib/helpTexts";
+import {
+  EMPTY_ATHLETE,
+  loadAthlete,
+  saveAthlete,
+  validateAthlete,
+  type AthleteField,
+  type AthleteSettings,
+} from "@/lib/athleteStorage";
+import { BMR_HELP, PMA_HELP, TDEE_HELP, VMA_HELP } from "@/lib/helpTexts";
+import { BIKE_POSITIONS } from "@/lib/intensity";
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
 import { findSport, SPORTS } from "@/lib/sports";
 
@@ -70,17 +79,21 @@ type EnergyCalculatorProps = {
   onMinutesChange?: (minutes: string) => void;
   /** Appelée à chaque changement d'effort pour que la page puisse le transmettre. */
   onEffortChange?: (effort: EffortFormValues) => void;
+  /** Appelée avec les données athlète valides et le poids du profil. */
+  onAthleteChange?: (athlete: AthleteSettings, weightKg: string) => void;
 };
 
 export default function EnergyCalculator({
   initialEffort,
   onMinutesChange,
   onEffortChange,
+  onAthleteChange,
 }: EnergyCalculatorProps = {}) {
   const [values, setValues] = useState<EnergyFormValues>(EMPTY_VALUES);
   const [effort, setEffort] = useState<EffortFormValues>(
     () => initialEffort ?? EMPTY_EFFORT,
   );
+  const [athlete, setAthlete] = useState<AthleteSettings>(EMPTY_ATHLETE);
   const [activityIndex, setActivityIndex] = useState(DEFAULT_ACTIVITY_INDEX);
   const [submitted, setSubmitted] = useState(false);
   /** Bloc « Paramètres » : true = édition, false = replié après validation. */
@@ -91,6 +104,9 @@ export default function EnergyCalculator({
   const ageFieldRef = useRef<HTMLInputElement>(null);
   const weightFieldRef = useRef<HTMLInputElement>(null);
   const heightFieldRef = useRef<HTMLInputElement>(null);
+  const vmaFieldRef = useRef<HTMLInputElement>(null);
+  const pmaFieldRef = useRef<HTMLInputElement>(null);
+  const bikeWeightFieldRef = useRef<HTMLInputElement>(null);
   const sportRef = useRef<HTMLSelectElement>(null);
   const modifyButtonRef = useRef<HTMLButtonElement>(null);
   /** Focus à poser après un changement d'état du bloc (l'élément n'existe pas encore). */
@@ -105,6 +121,9 @@ export default function EnergyCalculator({
 
   const effortErrors = useMemo(() => validateEffort(effort), [effort]);
   const effortHasErrors = Object.keys(effortErrors).length > 0;
+
+  const athleteErrors = useMemo(() => validateAthlete(athlete), [athlete]);
+  const athleteHasErrors = Object.keys(athleteErrors).length > 0;
 
   const effortDuration = useMemo(
     () => computeEffortDuration(effort),
@@ -121,24 +140,36 @@ export default function EnergyCalculator({
     onEffortChange?.(effort);
   }, [effort, onEffortChange]);
 
-  // Lecture du profil après le montage : jamais pendant le rendu (pas d'écart d'hydratation).
+  // Lecture du profil et des données athlète après le montage : jamais pendant le rendu.
   useEffect(() => {
-    const stored = loadProfile();
-    if (!stored) {
+    const storedProfile = loadProfile();
+    const storedAthlete = loadAthlete();
+    /* eslint-disable react-hooks/set-state-in-effect -- SPEC-06 et SPEC-07.2 : hydratation demandée dans un useEffect, pas pendant le rendu */
+    if (storedAthlete) {
+      setAthlete(storedAthlete);
+    }
+    if (!storedProfile) {
       return;
     }
-    /* eslint-disable react-hooks/set-state-in-effect -- SPEC-06 : hydratation demandée dans un useEffect, pas pendant le rendu */
     setValues((current) => ({
       ...current,
-      sex: stored.sex,
-      age: stored.age,
-      weightKg: stored.weightKg,
-      heightCm: stored.heightCm,
+      sex: storedProfile.sex,
+      age: storedProfile.age,
+      weightKg: storedProfile.weightKg,
+      heightCm: storedProfile.heightCm,
     }));
-    setActivityIndex(stored.activityIndex);
+    setActivityIndex(storedProfile.activityIndex);
     setProfileOpen(false);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
+
+  // Les modèles de 07.3 et 07.4 ont besoin de la VMA, de la PMA et du poids du cycliste.
+  useEffect(() => {
+    if (!onAthleteChange || athleteHasErrors) {
+      return;
+    }
+    onAthleteChange(athlete, values.weightKg);
+  }, [onAthleteChange, athlete, athleteHasErrors, values.weightKg]);
 
   // Focus différé : la cible vient d'apparaître (bloc replié ou rouvert).
   useEffect(() => {
@@ -191,6 +222,18 @@ export default function EnergyCalculator({
     return message;
   }
 
+  /** Idem pour les champs athlète : un champ vide n'affiche rien avant « Valider ». */
+  function athleteErrorFor(field: AthleteField): string | null {
+    const message = athleteErrors[field];
+    if (!message) {
+      return null;
+    }
+    if (athlete[field].trim() === "" && !profileAttempted) {
+      return null;
+    }
+    return message;
+  }
+
   function focusProfileField(field: ProfileField) {
     if (field === "sex") {
       firstFieldRef.current?.focus();
@@ -203,7 +246,7 @@ export default function EnergyCalculator({
     }
   }
 
-  /** « Valider » n'enregistre que les 4 champs du profil ; sport et effort ne bloquent pas. */
+  /** « Valider » enregistre le profil et les données athlète ; sport et effort ne bloquent pas. */
   function handleValidateProfile() {
     setProfileAttempted(true);
 
@@ -212,6 +255,18 @@ export default function EnergyCalculator({
     );
     if (invalidField) {
       focusProfileField(invalidField);
+      return;
+    }
+    if (athleteErrors.vmaKmh) {
+      vmaFieldRef.current?.focus();
+      return;
+    }
+    if (athleteErrors.pmaWatts) {
+      pmaFieldRef.current?.focus();
+      return;
+    }
+    if (athleteErrors.bikeKg) {
+      bikeWeightFieldRef.current?.focus();
       return;
     }
     if (values.sex !== "male" && values.sex !== "female") {
@@ -225,9 +280,31 @@ export default function EnergyCalculator({
       heightCm: values.heightCm,
       activityIndex,
     });
+    saveAthlete({
+      ...athlete,
+      bikeKg: athlete.hasBike ? athlete.bikeKg : "",
+    });
 
     pendingFocusRef.current = "modify";
     setProfileOpen(false);
+  }
+
+  /** Cocher ou décocher le vélo ; sans vélo, le poids du vélo est oublié. */
+  function handleBikeToggle(hasBike: boolean) {
+    setAthlete((current) => ({
+      ...current,
+      hasBike,
+      bikeKg: hasBike ? current.bikeKg : "",
+    }));
+  }
+
+  /** Position aéro limitée aux identifiants de `BIKE_POSITIONS`. */
+  function handleBikePosition(id: string) {
+    const position = BIKE_POSITIONS.find((item) => item.id === id);
+    if (!position) {
+      return;
+    }
+    setAthlete((current) => ({ ...current, bikePosition: position.id }));
   }
 
   /** Rouvre le bloc avec les valeurs courantes ; rien n'est réenregistré sans « Valider ». */
@@ -284,6 +361,9 @@ export default function EnergyCalculator({
   const sportError = errorFor("sportId");
   const distanceError = effortError("distanceKm");
   const speedError = effortError("speed");
+  const vmaError = athleteErrorFor("vmaKmh");
+  const pmaError = athleteErrorFor("pmaWatts");
+  const bikeWeightError = athleteErrorFor("bikeKg");
 
   return (
     <div className="flex flex-col gap-4">
@@ -488,6 +568,151 @@ export default function EnergyCalculator({
               </span>
             </p>
           </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="vma" className={FIELD_LABEL}>
+                VMA (km/h)
+              </label>
+              <input
+                ref={vmaFieldRef}
+                id="vma"
+                type="text"
+                inputMode="decimal"
+                value={athlete.vmaKmh}
+                onChange={(event) =>
+                  setAthlete((current) => ({
+                    ...current,
+                    vmaKmh: event.target.value,
+                  }))
+                }
+                aria-invalid={vmaError ? true : undefined}
+                aria-describedby={vmaError ? "erreur-vma" : undefined}
+                className={FIELD}
+              />
+              {vmaError ? (
+                <p
+                  id="erreur-vma"
+                  role="alert"
+                  className="mt-1 text-sm text-danger"
+                >
+                  {vmaError}
+                </p>
+              ) : null}
+              <div className="mt-1 flex justify-end">
+                <InfoTooltip id="help-vma" label="Aide : VMA" title="VMA">
+                  {VMA_HELP}
+                </InfoTooltip>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="pma" className={FIELD_LABEL}>
+                PMA (W)
+              </label>
+              <input
+                ref={pmaFieldRef}
+                id="pma"
+                type="text"
+                inputMode="numeric"
+                value={athlete.pmaWatts}
+                onChange={(event) =>
+                  setAthlete((current) => ({
+                    ...current,
+                    pmaWatts: event.target.value,
+                  }))
+                }
+                aria-invalid={pmaError ? true : undefined}
+                aria-describedby={pmaError ? "erreur-pma" : undefined}
+                className={FIELD}
+              />
+              {pmaError ? (
+                <p
+                  id="erreur-pma"
+                  role="alert"
+                  className="mt-1 text-sm text-danger"
+                >
+                  {pmaError}
+                </p>
+              ) : null}
+              <div className="mt-1 flex justify-end">
+                <InfoTooltip id="help-pma" label="Aide : PMA" title="PMA">
+                  {PMA_HELP}
+                </InfoTooltip>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-2">
+            <label
+              htmlFor="ajouter-velo"
+              className="flex h-11 w-fit cursor-pointer items-center gap-3 text-sm font-medium text-ink"
+            >
+              <input
+                id="ajouter-velo"
+                type="checkbox"
+                checked={athlete.hasBike}
+                onChange={(event) => handleBikeToggle(event.target.checked)}
+                className="h-5 w-5 rounded border-line accent-accent focus-visible:ring-2 focus-visible:ring-accent-strong"
+              />
+              Ajouter un vélo
+            </label>
+          </div>
+
+          {athlete.hasBike ? (
+            <div className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="poids-velo" className={FIELD_LABEL}>
+                  Poids du vélo (kg)
+                </label>
+                <input
+                  ref={bikeWeightFieldRef}
+                  id="poids-velo"
+                  type="text"
+                  inputMode="decimal"
+                  value={athlete.bikeKg}
+                  onChange={(event) =>
+                    setAthlete((current) => ({
+                      ...current,
+                      bikeKg: event.target.value,
+                    }))
+                  }
+                  aria-invalid={bikeWeightError ? true : undefined}
+                  aria-describedby={
+                    bikeWeightError ? "erreur-poids-velo" : undefined
+                  }
+                  className={FIELD}
+                />
+                {bikeWeightError ? (
+                  <p
+                    id="erreur-poids-velo"
+                    role="alert"
+                    className="mt-1 text-sm text-danger"
+                  >
+                    {bikeWeightError}
+                  </p>
+                ) : null}
+              </div>
+
+              <div>
+                <label htmlFor="position-aero" className={FIELD_LABEL}>
+                  Position aéro
+                </label>
+                <select
+                  id="position-aero"
+                  value={athlete.bikePosition}
+                  onChange={(event) => handleBikePosition(event.target.value)}
+                  className={FIELD}
+                >
+                  {BIKE_POSITIONS.map((position) => (
+                    <option key={position.id} value={position.id}>
+                      {position.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ) : null}
 
               <div className="mt-4 flex">
                 <button
