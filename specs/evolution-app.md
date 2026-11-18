@@ -140,3 +140,5 @@ Question fixe : [
 > - L'ajustement est propre à l'utilisateur et doit rester réversible.
 
 ### 8. Ajouter une page "After-Activity" qui apport un plan pour la reconstruction des réserves glucidiques, hydriques et des apports en protéines.
+
+### 9. Effectuer un nettoyage pour supprimer le code mort.
