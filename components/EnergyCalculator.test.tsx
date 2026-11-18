@@ -1,10 +1,29 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import EnergyCalculator from "@/components/EnergyCalculator";
+import { PROFILE_STORAGE_KEY, type ProfileSettings } from "@/lib/profileStorage";
 
 const user = () => userEvent.setup();
+
+/** Profil enregistré de référence : femme, 35 ans, niveau « Modéré ». */
+const PROFILE: ProfileSettings = {
+  sex: "female",
+  age: "35",
+  weightKg: "65",
+  heightCm: "168",
+  activityIndex: 2,
+};
+
+function storeProfile(profile: ProfileSettings = PROFILE) {
+  window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+}
+
+function storedProfile(): unknown {
+  const raw = window.localStorage.getItem(PROFILE_STORAGE_KEY);
+  return raw === null ? null : JSON.parse(raw);
+}
 
 /** Profil seul, sans le sport ni l'effort. */
 async function fillProfile(u: ReturnType<typeof userEvent.setup>) {
@@ -26,8 +45,15 @@ async function fillValidProfile() {
 
 const kmhRadio = () => screen.getByRole("radio", { name: "km/h" });
 const minkmRadio = () => screen.getByRole("radio", { name: "min/km" });
+const validateButton = () => screen.getByRole("button", { name: "Valider" });
+const editButton = () =>
+  screen.getByRole("button", { name: "Modifier mes paramètres" });
 
 describe("EnergyCalculator", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it("expose chaque champ avec un label", () => {
     render(<EnergyCalculator />);
 
@@ -230,7 +256,7 @@ describe("EnergyCalculator", () => {
     );
   });
 
-  it("choisit l'unité selon le sport quand la vitesse est vide (exemple 13)", async () => {
+  it("choisit l'unité selon le sport quand la vitesse est vide", async () => {
     render(<EnergyCalculator />);
     const u = user();
 
@@ -249,7 +275,7 @@ describe("EnergyCalculator", () => {
     expect(screen.getByLabelText("Vitesse (km/h)")).toBeInTheDocument();
   });
 
-  it("conserve l'unité et la valeur saisies quand le sport change (exemple 14)", async () => {
+  it("conserve l'unité et la valeur saisies quand le sport change", async () => {
     render(<EnergyCalculator />);
     const u = user();
 
@@ -268,7 +294,7 @@ describe("EnergyCalculator", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("convertit la valeur saisie lors d'une bascule d'unité (exemple 15)", async () => {
+  it("convertit la valeur saisie lors d'une bascule d'unité", async () => {
     render(<EnergyCalculator />);
     const u = user();
 
@@ -293,7 +319,7 @@ describe("EnergyCalculator", () => {
     expect(screen.getByTestId("effort-kcal")).toHaveTextContent("467");
   });
 
-  it("affiche la ligne de durée seulement quand elle est calculable (exemple 16)", async () => {
+  it("affiche la ligne de durée seulement quand elle est calculable", async () => {
     const onMinutesChange = vi.fn();
     render(<EnergyCalculator onMinutesChange={onMinutesChange} />);
     const u = user();
@@ -311,35 +337,6 @@ describe("EnergyCalculator", () => {
     await u.clear(screen.getByLabelText("Distance (km)"));
 
     expect(screen.queryByTestId("effort-duration")).not.toBeInTheDocument();
-    expect(onMinutesChange).toHaveBeenLastCalledWith("");
-  });
-
-  it("Reset vide les champs, l'effort, la ligne de durée et notifie la page (exemple 17)", async () => {
-    const onMinutesChange = vi.fn();
-    render(<EnergyCalculator onMinutesChange={onMinutesChange} />);
-    const u = await fillValidProfile();
-    expect(screen.getByTestId("results")).toBeInTheDocument();
-    expect(screen.getByTestId("effort-duration")).toBeInTheDocument();
-
-    await u.click(screen.getByRole("button", { name: "Reset" }));
-
-    expect(screen.getByLabelText("Homme")).not.toBeChecked();
-    expect(screen.getByLabelText("Femme")).not.toBeChecked();
-    expect(screen.getByLabelText("Âge (ans)")).toHaveValue(null);
-    expect(screen.getByLabelText("Poids (kg)")).toHaveValue(null);
-    expect(screen.getByLabelText("Taille (cm)")).toHaveValue(null);
-    expect(screen.getByLabelText("Distance (km)")).toHaveValue("");
-    expect(screen.getByLabelText("Vitesse (km/h)")).toHaveValue("");
-    expect(kmhRadio()).toBeChecked();
-    expect(screen.getByLabelText("Sport")).toHaveValue("");
-    expect(screen.getByLabelText("Niveau d'activité physique")).toHaveValue(
-      "1",
-    );
-    expect(screen.getByTestId("activity-label")).toHaveTextContent("Léger");
-    expect(screen.queryByTestId("results")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("effort-duration")).not.toBeInTheDocument();
-    expect(screen.queryByText("Choisis un sexe.")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Homme")).toHaveFocus();
     expect(onMinutesChange).toHaveBeenLastCalledWith("");
   });
 
@@ -393,5 +390,156 @@ describe("EnergyCalculator", () => {
 
     await u.click(screen.getByRole("button", { name: "Reset" }));
     expect(onMinutesChange).toHaveBeenLastCalledWith("");
+  });
+
+  describe("profil « Paramètres »", () => {
+    it("démarre en édition quand aucun profil n'est enregistré (exemple 7)", () => {
+      render(<EnergyCalculator />);
+
+      expect(validateButton()).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Modifier mes paramètres" }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Âge (ans)")).toBeInTheDocument();
+    });
+
+    it("affiche les erreurs et n'enregistre rien pour un profil vide (exemple 8)", async () => {
+      render(<EnergyCalculator />);
+
+      await user().click(validateButton());
+
+      expect(screen.getByText("Choisis un sexe.")).toBeInTheDocument();
+      expect(screen.getByText("L'âge est obligatoire.")).toBeInTheDocument();
+      expect(screen.getByText("Le poids est obligatoire.")).toBeInTheDocument();
+      expect(screen.getByText("La taille est obligatoire.")).toBeInTheDocument();
+      expect(storedProfile()).toBeNull();
+      expect(screen.getByLabelText("Âge (ans)")).toBeInTheDocument();
+      expect(screen.getByLabelText("Homme")).toHaveFocus();
+    });
+
+    it("enregistre le profil et replie le bloc (exemple 9)", async () => {
+      render(<EnergyCalculator />);
+      const u = user();
+
+      await fillProfile(u);
+      await u.click(validateButton());
+
+      expect(storedProfile()).toEqual({
+        sex: "male",
+        age: "30",
+        weightKg: "70",
+        heightCm: "175",
+        activityIndex: 1,
+      });
+      expect(screen.queryByLabelText("Âge (ans)")).not.toBeInTheDocument();
+      expect(editButton()).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Valider" })).not.toBeInTheDocument();
+    });
+
+    it("replie le bloc et calcule avec un profil enregistré (exemple 10)", async () => {
+      storeProfile();
+      render(<EnergyCalculator />);
+      const u = user();
+
+      expect(screen.queryByLabelText("Âge (ans)")).not.toBeInTheDocument();
+      expect(editButton()).toHaveAttribute("aria-expanded", "false");
+
+      await u.selectOptions(screen.getByLabelText("Sport"), "course-modere");
+      await u.type(screen.getByLabelText("Distance (km)"), "10");
+      await u.type(screen.getByLabelText("Allure (min/km)"), "5:00");
+      await u.click(screen.getByRole("button", { name: "Calculer" }));
+
+      expect(screen.getByTestId("results")).toBeInTheDocument();
+      expect(screen.getByTestId("effort-kcal")).toHaveTextContent("450");
+    });
+
+    it("réaffiche les valeurs enregistrées et place le focus en tête (exemple 11)", async () => {
+      storeProfile();
+      render(<EnergyCalculator />);
+
+      await user().click(editButton());
+
+      expect(screen.getByLabelText("Femme")).toBeChecked();
+      expect(screen.getByLabelText("Âge (ans)")).toHaveValue(35);
+      expect(screen.getByLabelText("Poids (kg)")).toHaveValue(65);
+      expect(screen.getByLabelText("Taille (cm)")).toHaveValue(168);
+      expect(screen.getByLabelText("Niveau d'activité physique")).toHaveValue("2");
+      expect(screen.getByLabelText("Homme")).toHaveFocus();
+      expect(validateButton()).toBeInTheDocument();
+    });
+
+    it("met à jour le profil à la seconde validation (exemple 12)", async () => {
+      storeProfile();
+      render(<EnergyCalculator />);
+      const u = user();
+
+      await u.click(editButton());
+      await u.clear(screen.getByLabelText("Âge (ans)"));
+      await u.type(screen.getByLabelText("Âge (ans)"), "40");
+      await u.click(validateButton());
+
+      expect(storedProfile()).toMatchObject({ age: "40" });
+      expect(screen.queryByLabelText("Âge (ans)")).not.toBeInTheDocument();
+      expect(editButton()).toBeInTheDocument();
+    });
+
+    it("valide malgré un sport ou un effort manquants (exemple 13)", async () => {
+      render(<EnergyCalculator />);
+      const u = user();
+
+      await fillProfile(u);
+      await u.click(validateButton());
+
+      expect(storedProfile()).not.toBeNull();
+      expect(screen.queryByText("Choisis un sport.")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("La distance est obligatoire."),
+      ).not.toBeInTheDocument();
+    });
+
+    it("calcule sans avoir validé le profil (exemple 14)", async () => {
+      render(<EnergyCalculator />);
+      await fillValidProfile();
+
+      expect(screen.getByTestId("results")).toBeInTheDocument();
+      expect(storedProfile()).toBeNull();
+    });
+
+    it("« Valider » n'envoie pas le formulaire (exemple 16)", async () => {
+      render(<EnergyCalculator />);
+      const u = user();
+
+      await fillProfile(u);
+      await u.click(validateButton());
+
+      expect(screen.queryByText("Choisis un sport.")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("La vitesse est obligatoire."),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("La distance est obligatoire."),
+      ).not.toBeInTheDocument();
+    });
+
+    it("Reset vide sport, distance et vitesse mais garde le profil (exemple 15)", async () => {
+      const onMinutesChange = vi.fn();
+      render(<EnergyCalculator onMinutesChange={onMinutesChange} />);
+      const u = await fillValidProfile();
+      await u.click(validateButton());
+
+      const saved = window.localStorage.getItem(PROFILE_STORAGE_KEY);
+      expect(saved).not.toBeNull();
+
+      await u.click(screen.getByRole("button", { name: "Reset" }));
+
+      expect(screen.getByLabelText("Sport")).toHaveValue("");
+      expect(screen.getByLabelText("Distance (km)")).toHaveValue("");
+      expect(screen.getByLabelText("Vitesse (km/h)")).toHaveValue("");
+      expect(screen.queryByLabelText("Âge (ans)")).not.toBeInTheDocument();
+      expect(editButton()).toBeInTheDocument();
+      expect(window.localStorage.getItem(PROFILE_STORAGE_KEY)).toBe(saved);
+      expect(screen.getByLabelText("Sport")).toHaveFocus();
+      expect(onMinutesChange).toHaveBeenLastCalledWith("");
+    });
   });
 });

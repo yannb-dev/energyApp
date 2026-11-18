@@ -138,3 +138,5 @@ Question fixe : [
 > - La question 5 suppose plusieurs produits solides (point 1).
 > - Problème gastrique : ajouter un message de prudence (consulter un professionnel si récurrent) pour rester hors du champ santé.
 > - L'ajustement est propre à l'utilisateur et doit rester réversible.
+
+### 8. Ajouter une page "After-Activity" qui apport un plan pour la reconstruction des réserves glucidiques, hydriques et des apports en protéines.
