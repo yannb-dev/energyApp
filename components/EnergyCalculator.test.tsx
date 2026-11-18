@@ -9,6 +9,21 @@ import {
 } from "@/lib/athleteStorage";
 import { PROFILE_STORAGE_KEY, type ProfileSettings } from "@/lib/profileStorage";
 
+// Le mode GPX est couvert par GpxActivity.test.tsx : ici on ne vérifie que le câblage.
+vi.mock("@/components/GpxActivity", () => ({
+  __esModule: true,
+  GPX_EDIT_SETTINGS_EVENT: "kcalapp:edit-settings",
+  default: ({
+    onMinutesChange,
+  }: {
+    onMinutesChange: (minutes: string) => void;
+  }) => (
+    <button type="button" onClick={() => onMinutesChange("54")}>
+      Simuler la trace
+    </button>
+  ),
+}));
+
 const user = () => userEvent.setup();
 
 /** Profil enregistré de référence : femme, 35 ans, niveau « Modéré ». */
@@ -672,6 +687,81 @@ describe("EnergyCalculator", () => {
         expect.objectContaining({ vmaKmh: "16" }),
         "70",
       );
+    });
+  });
+
+  describe("mode GPX (SPEC-07.5)", () => {
+    it("n'affiche le sélecteur de mode que pour les sports GPX (exemple 12)", async () => {
+      render(<EnergyCalculator />);
+      const u = user();
+
+      expect(
+        screen.queryByRole("radiogroup", { name: "Mode de saisie" }),
+      ).not.toBeInTheDocument();
+
+      await u.selectOptions(screen.getByLabelText("Sport"), "course-modere");
+
+      expect(
+        screen.getByRole("radiogroup", { name: "Mode de saisie" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("radio", { name: "Saisie manuelle" }),
+      ).toBeChecked();
+
+      await u.selectOptions(screen.getByLabelText("Sport"), "randonnee-modere");
+
+      expect(
+        screen.queryByRole("radiogroup", { name: "Mode de saisie" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("repasse en saisie manuelle quand le sport ne supporte plus le GPX (exemple 12)", async () => {
+      const onMinutesChange = vi.fn();
+      render(<EnergyCalculator onMinutesChange={onMinutesChange} />);
+      const u = user();
+
+      await u.selectOptions(screen.getByLabelText("Sport"), "course-modere");
+      await u.click(screen.getByRole("radio", { name: "Trace GPX" }));
+
+      expect(
+        screen.getByRole("button", { name: "Simuler la trace" }),
+      ).toBeInTheDocument();
+      expect(screen.queryByLabelText("Distance (km)")).not.toBeInTheDocument();
+
+      await u.click(screen.getByRole("button", { name: "Simuler la trace" }));
+      expect(onMinutesChange).toHaveBeenLastCalledWith("54");
+
+      await u.selectOptions(screen.getByLabelText("Sport"), "randonnee-modere");
+
+      expect(screen.getByLabelText("Distance (km)")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Simuler la trace" }),
+      ).not.toBeInTheDocument();
+      expect(onMinutesChange).not.toHaveBeenLastCalledWith("54");
+      expect(onMinutesChange).toHaveBeenLastCalledWith("");
+    });
+
+    it("conserve les champs manuels quand on change de mode (exemple 12)", async () => {
+      render(<EnergyCalculator />);
+      const u = user();
+
+      await u.selectOptions(screen.getByLabelText("Sport"), "course-modere");
+      await u.type(screen.getByLabelText("Distance (km)"), "10");
+
+      await u.click(screen.getByRole("radio", { name: "Trace GPX" }));
+      await u.click(screen.getByRole("radio", { name: "Saisie manuelle" }));
+
+      expect(screen.getByLabelText("Distance (km)")).toHaveValue("10");
+    });
+
+    it("la saisie manuelle calcule exactement comme avant (exemple 13)", async () => {
+      render(<EnergyCalculator />);
+      await fillValidProfile();
+
+      expect(screen.getByTestId("effort-kcal")).toHaveTextContent("484");
+      expect(
+        screen.queryByRole("button", { name: "Simuler la trace" }),
+      ).not.toBeInTheDocument();
     });
   });
 });

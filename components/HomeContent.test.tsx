@@ -22,6 +22,16 @@ async function fillProduct(u: ReturnType<typeof userEvent.setup>) {
   await u.type(screen.getByLabelText("Poids (g)"), "60");
 }
 
+/** Trace GPX plate de 10 km : 101 points espacés de 0,1 km. */
+function flatGpx(): string {
+  const step = (0.1 * 180) / (Math.PI * 6371);
+  const points = Array.from({ length: 101 }, (_, index) => {
+    const lat = (45 + index * step).toFixed(9);
+    return `<trkpt lat="${lat}" lon="6"><ele>100</ele></trkpt>`;
+  });
+  return `<?xml version="1.0"?><gpx version="1.1"><trk><trkseg>${points.join("")}</trkseg></trk></gpx>`;
+}
+
 describe("HomeContent", () => {
   beforeEach(() => {
     navigation.search = new URLSearchParams();
@@ -92,6 +102,33 @@ describe("HomeContent", () => {
 
     expect(navigation.push).toHaveBeenCalledWith(
       "/nutrition?min=50&km=10&v=5%3A00&u=minkm",
+    );
+  });
+
+  it("une trace GPX alimente la nutrition comme la saisie manuelle (exemple 14)", async () => {
+    render(<HomeContent />);
+    const u = userEvent.setup();
+
+    await u.click(screen.getByLabelText("Homme"));
+    await u.type(screen.getByLabelText("Âge (ans)"), "30");
+    await u.type(screen.getByLabelText("Poids (kg)"), "70");
+    await u.type(screen.getByLabelText("Taille (cm)"), "175");
+    await u.type(screen.getByLabelText("VMA (km/h)"), "16");
+    await u.selectOptions(screen.getByLabelText("Sport"), "course-modere");
+    await u.click(screen.getByRole("radio", { name: "Trace GPX" }));
+
+    await u.upload(
+      screen.getByLabelText("Trace GPX", { selector: 'input[type="file"]' }),
+      new File([flatGpx()], "t.gpx"),
+    );
+
+    expect(screen.getByTestId("gpx-duration")).toHaveTextContent("54 min");
+
+    await fillProduct(u);
+    await u.click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
+
+    expect(navigation.push).toHaveBeenCalledWith(
+      expect.stringContaining("/nutrition?min=54"),
     );
   });
 });

@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import InfoTooltip from "@/components/InfoTooltip";
+import GpxActivity, {
+  GPX_EDIT_SETTINGS_EVENT,
+} from "@/components/GpxActivity";
 import {
   ACTIVITY_LEVELS,
   AGE_MAX,
@@ -38,7 +41,7 @@ import {
 import { BMR_HELP, PMA_HELP, TDEE_HELP, VMA_HELP } from "@/lib/helpTexts";
 import { BIKE_POSITIONS } from "@/lib/intensity";
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
-import { findSport, SPORTS } from "@/lib/sports";
+import { findSport, SPORTS, supportsGpx } from "@/lib/sports";
 
 const EMPTY_VALUES: EnergyFormValues = {
   sex: "",
@@ -94,6 +97,10 @@ export default function EnergyCalculator({
     () => initialEffort ?? EMPTY_EFFORT,
   );
   const [athlete, setAthlete] = useState<AthleteSettings>(EMPTY_ATHLETE);
+  /** Mode du bloc Activité : saisie manuelle (SPEC-05) ou trace GPX (SPEC-07.5). */
+  const [inputMode, setInputMode] = useState<"manual" | "gpx">("manual");
+  /** Durée remontée par GpxActivity : seule source de la durée en mode GPX. */
+  const [gpxMinutes, setGpxMinutes] = useState("");
   const [activityIndex, setActivityIndex] = useState(DEFAULT_ACTIVITY_INDEX);
   const [submitted, setSubmitted] = useState(false);
   /** Bloc « Paramètres » : true = édition, false = replié après validation. */
@@ -114,6 +121,7 @@ export default function EnergyCalculator({
 
   const activity = ACTIVITY_LEVELS[activityIndex];
   const sport = findSport(values.sportId);
+  const gpxAvailable = sport !== undefined && supportsGpx(sport);
   const isPace = effort.speedUnit === "minkm";
 
   const errors = useMemo(() => validateInputs(values), [values]);
@@ -130,11 +138,14 @@ export default function EnergyCalculator({
     [effort],
   );
   const derivedMinutes = effortDuration ? String(effortDuration.minutes) : "";
+  /** Durée lue par la page : mode GPX ou saisie manuelle, jamais les deux. */
+  const effectiveMinutes =
+    inputMode === "gpx" && gpxAvailable ? gpxMinutes : derivedMinutes;
 
   // La page a besoin de la durée dérivée pour la nutrition et l'URL.
   useEffect(() => {
-    onMinutesChange?.(derivedMinutes);
-  }, [derivedMinutes, onMinutesChange]);
+    onMinutesChange?.(effectiveMinutes);
+  }, [effectiveMinutes, onMinutesChange]);
 
   useEffect(() => {
     onEffortChange?.(effort);
@@ -184,8 +195,38 @@ export default function EnergyCalculator({
     }
   }, [profileOpen]);
 
+  // « Modifier mes paramètres » du mode GPX : rouvre le bloc ou cible la VMA.
+  useEffect(() => {
+    function handleOpenSettings() {
+      if (profileOpen) {
+        vmaFieldRef.current?.focus();
+        return;
+      }
+      pendingFocusRef.current = "firstField";
+      setProfileOpen(true);
+    }
+
+    window.addEventListener(GPX_EDIT_SETTINGS_EVENT, handleOpenSettings);
+    return () =>
+      window.removeEventListener(GPX_EDIT_SETTINGS_EVENT, handleOpenSettings);
+  }, [profileOpen]);
+
   const results = useMemo(() => {
-    if (hasErrors || effortHasErrors || !sport) {
+    if (hasErrors || !sport) {
+      return null;
+    }
+    // En mode GPX, la distance et la vitesse manuelles ne sont pas requises.
+    if (inputMode === "gpx" && gpxAvailable) {
+      if (gpxMinutes === "") {
+        return null;
+      }
+      return computeEnergyResults(
+        { ...values, minutes: gpxMinutes },
+        activity.coefficient,
+        sport.met,
+      );
+    }
+    if (effortHasErrors) {
       return null;
     }
     return computeEnergyResults(
@@ -193,7 +234,17 @@ export default function EnergyCalculator({
       activity.coefficient,
       sport.met,
     );
-  }, [values, derivedMinutes, hasErrors, effortHasErrors, sport, activity.coefficient]);
+  }, [
+    values,
+    derivedMinutes,
+    gpxMinutes,
+    inputMode,
+    gpxAvailable,
+    hasErrors,
+    effortHasErrors,
+    sport,
+    activity.coefficient,
+  ]);
 
   /** Un champ vide n'affiche son erreur qu'après une tentative de calcul ou de validation. */
   function errorFor(field: EnergyField): string | null {
@@ -322,6 +373,8 @@ export default function EnergyCalculator({
   function handleReset() {
     setValues((current) => ({ ...current, sportId: "" }));
     setEffort(EMPTY_EFFORT);
+    setInputMode("manual");
+    setGpxMinutes("");
     setSubmitted(false);
     sportRef.current?.focus();
     onMinutesChange?.("");
@@ -335,11 +388,24 @@ export default function EnergyCalculator({
     if (!nextSport) {
       return;
     }
+    // Sport sans GPX : retour en saisie manuelle, aucune durée de trace conservée.
+    if (!supportsGpx(nextSport)) {
+      setInputMode("manual");
+      setGpxMinutes("");
+    }
     setEffort((current) =>
       current.speed.trim() === ""
         ? { ...current, speedUnit: nextSport.defaultSpeedUnit }
         : current,
     );
+  }
+
+  /** Bascule manuel / GPX : les champs manuels ne sont jamais vidés. */
+  function handleInputMode(mode: "manual" | "gpx") {
+    setInputMode(mode);
+    if (mode === "manual") {
+      setGpxMinutes("");
+    }
   }
 
   function handleUnitChange(unit: SpeedUnit) {
@@ -792,115 +858,166 @@ export default function EnergyCalculator({
             ) : null}
           </div>
 
-          <div className="mt-3">
-            <label htmlFor="distance" className={FIELD_LABEL}>
-              Distance (km)
-            </label>
-            <input
-              id="distance"
-              type="text"
-              inputMode="decimal"
-              value={effort.distanceKm}
-              onChange={(event) =>
-                setEffort((current) => ({
-                  ...current,
-                  distanceKm: event.target.value,
-                }))
-              }
-              aria-invalid={distanceError ? true : undefined}
-              aria-describedby={distanceError ? "erreur-distance" : undefined}
-              className={FIELD}
-            />
-            {distanceError ? (
-              <p
-                id="erreur-distance"
-                role="alert"
-                className="mt-1 text-sm text-danger"
-              >
-                {distanceError}
-              </p>
-            ) : null}
-          </div>
-
-          <fieldset className="mt-3">
-            <legend className={FIELD_LABEL}>Unité de vitesse</legend>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="relative">
-                <input
-                  id="unite-kmh"
-                  type="radio"
-                  name="unite"
-                  value="kmh"
-                  checked={effort.speedUnit === "kmh"}
-                  onChange={() => handleUnitChange("kmh")}
-                  className="peer sr-only"
-                />
-                <label htmlFor="unite-kmh" className={CHIP}>
-                  km/h
-                </label>
-              </div>
-              <div className="relative">
-                <input
-                  id="unite-minkm"
-                  type="radio"
-                  name="unite"
-                  value="minkm"
-                  checked={effort.speedUnit === "minkm"}
-                  onChange={() => handleUnitChange("minkm")}
-                  className="peer sr-only"
-                />
-                <label htmlFor="unite-minkm" className={CHIP}>
-                  min/km
-                </label>
+          {gpxAvailable ? (
+            <div className="mt-3" role="radiogroup" aria-label="Mode de saisie">
+              <p className={FIELD_LABEL}>Mode de saisie</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="relative">
+                  <input
+                    id="mode-manuel"
+                    type="radio"
+                    name="mode-saisie"
+                    value="manual"
+                    checked={inputMode === "manual"}
+                    onChange={() => handleInputMode("manual")}
+                    className="peer sr-only"
+                  />
+                  <label htmlFor="mode-manuel" className={CHIP}>
+                    Saisie manuelle
+                  </label>
+                </div>
+                <div className="relative">
+                  <input
+                    id="mode-gpx"
+                    type="radio"
+                    name="mode-saisie"
+                    value="gpx"
+                    checked={inputMode === "gpx"}
+                    onChange={() => handleInputMode("gpx")}
+                    className="peer sr-only"
+                  />
+                  <label htmlFor="mode-gpx" className={CHIP}>
+                    Trace GPX
+                  </label>
+                </div>
               </div>
             </div>
-          </fieldset>
+          ) : null}
 
-          <div className="mt-3">
-            <label htmlFor="vitesse" className={FIELD_LABEL}>
-              {isPace ? "Allure (min/km)" : "Vitesse (km/h)"}
-            </label>
-            <input
-              id="vitesse"
-              type="text"
-              inputMode={isPace ? "numeric" : "decimal"}
-              placeholder={isPace ? "5:30" : undefined}
-              value={effort.speed}
-              onChange={(event) =>
-                setEffort((current) => ({
-                  ...current,
-                  speed: event.target.value,
-                }))
-              }
-              aria-invalid={speedError ? true : undefined}
-              aria-describedby={speedError ? "erreur-vitesse" : undefined}
-              className={FIELD}
+          {inputMode === "gpx" && sport && gpxAvailable ? (
+            <GpxActivity
+              sport={sport}
+              profile={{ weightKg: values.weightKg }}
+              athlete={athlete}
+              onMinutesChange={setGpxMinutes}
             />
-            {speedError ? (
-              <p
-                id="erreur-vitesse"
-                role="alert"
-                className="mt-1 text-sm text-danger"
-              >
-                {speedError}
-              </p>
-            ) : null}
+          ) : (
+            <>
+              <div className="mt-3">
+                <label htmlFor="distance" className={FIELD_LABEL}>
+                  Distance (km)
+                </label>
+                <input
+                  id="distance"
+                  type="text"
+                  inputMode="decimal"
+                  value={effort.distanceKm}
+                  onChange={(event) =>
+                    setEffort((current) => ({
+                      ...current,
+                      distanceKm: event.target.value,
+                    }))
+                  }
+                  aria-invalid={distanceError ? true : undefined}
+                  aria-describedby={
+                    distanceError ? "erreur-distance" : undefined
+                  }
+                  className={FIELD}
+                />
+                {distanceError ? (
+                  <p
+                    id="erreur-distance"
+                    role="alert"
+                    className="mt-1 text-sm text-danger"
+                  >
+                    {distanceError}
+                  </p>
+                ) : null}
+              </div>
 
-            {effortDuration ? (
-              <p
-                role="status"
-                aria-live="polite"
-                data-testid="effort-duration"
-                className="mt-1 text-sm text-muted"
-              >
-                Durée de l&apos;effort : {formatDuration(effortDuration.minutes)}{" "}
-                · soit{" "}
-                {isPace
-                  ? `${speedLabelKmh(effortDuration.speedKmh)} km/h`
-                  : `${formatPace(3600 / effortDuration.speedKmh)} min/km`}
-              </p>
-            ) : null}
-          </div>
+              <fieldset className="mt-3">
+                <legend className={FIELD_LABEL}>Unité de vitesse</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="relative">
+                    <input
+                      id="unite-kmh"
+                      type="radio"
+                      name="unite"
+                      value="kmh"
+                      checked={effort.speedUnit === "kmh"}
+                      onChange={() => handleUnitChange("kmh")}
+                      className="peer sr-only"
+                    />
+                    <label htmlFor="unite-kmh" className={CHIP}>
+                      km/h
+                    </label>
+                  </div>
+                  <div className="relative">
+                    <input
+                      id="unite-minkm"
+                      type="radio"
+                      name="unite"
+                      value="minkm"
+                      checked={effort.speedUnit === "minkm"}
+                      onChange={() => handleUnitChange("minkm")}
+                      className="peer sr-only"
+                    />
+                    <label htmlFor="unite-minkm" className={CHIP}>
+                      min/km
+                    </label>
+                  </div>
+                </div>
+              </fieldset>
+
+              <div className="mt-3">
+                <label htmlFor="vitesse" className={FIELD_LABEL}>
+                  {isPace ? "Allure (min/km)" : "Vitesse (km/h)"}
+                </label>
+                <input
+                  id="vitesse"
+                  type="text"
+                  inputMode={isPace ? "numeric" : "decimal"}
+                  placeholder={isPace ? "5:30" : undefined}
+                  value={effort.speed}
+                  onChange={(event) =>
+                    setEffort((current) => ({
+                      ...current,
+                      speed: event.target.value,
+                    }))
+                  }
+                  aria-invalid={speedError ? true : undefined}
+                  aria-describedby={
+                    speedError ? "erreur-vitesse" : undefined
+                  }
+                  className={FIELD}
+                />
+                {speedError ? (
+                  <p
+                    id="erreur-vitesse"
+                    role="alert"
+                    className="mt-1 text-sm text-danger"
+                  >
+                    {speedError}
+                  </p>
+                ) : null}
+
+                {effortDuration ? (
+                  <p
+                    role="status"
+                    aria-live="polite"
+                    data-testid="effort-duration"
+                    className="mt-1 text-sm text-muted"
+                  >
+                    Durée de l&apos;effort :{" "}
+                    {formatDuration(effortDuration.minutes)} · soit{" "}
+                    {isPace
+                      ? `${speedLabelKmh(effortDuration.speedKmh)} km/h`
+                      : `${formatPace(3600 / effortDuration.speedKmh)} min/km`}
+                  </p>
+                ) : null}
+              </div>
+            </>
+          )}
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <button

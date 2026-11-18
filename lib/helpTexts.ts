@@ -65,3 +65,15 @@ export const PMA_HELP =
   "La PMA (puissance maximale aérobie) est la puissance que tu peux maintenir quelques " +
   "minutes à vélo. C'est une estimation à ajuster selon tes sensations et tes tests de " +
   `terrain. ${DISCLAIMER}`;
+
+/** Aide du bloc « Intensité » du mode GPX. */
+export const INTENSITY_HELP =
+  "L'intensité fixe le pourcentage de la VMA (course, trail) ou de la PMA (vélo) tenu sur " +
+  "toute la trace. Un pourcentage plus haut raccourcit la durée estimée, un pourcentage " +
+  `plus bas l'allonge. ${DISCLAIMER}`;
+
+/** Aide du résumé du mode GPX : méthode de calcul de la durée et des passages. */
+export const PACING_METHOD_HELP =
+  "Méthode : course et trail appliquent le coût de la pente de Minetti à effort constant, " +
+  "vélo résout l'équilibre de puissance (PMA, masse, aérodynamisme, pente). Les temps de " +
+  `passage sont cumulés kilomètre par kilomètre. ${DISCLAIMER}`;
