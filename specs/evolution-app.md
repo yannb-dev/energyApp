@@ -91,13 +91,13 @@ L'utilisateur importe une trace GPX, l'application la charge et extrait des donn
 
 Les valeurs relevées permettent de définir un profil altimétrique et les temps de passage par kilomètre.
 
-> 💬 **Commentaire Claude**
->
+> - Gros chantier : à découper en sous-specs (parser, modèle physique, UI). C'est le prérequis du point 5.
+> - Fichier GPX exploitable dans le dossier /asset.
 > - Le parsing GPX se fait sans dépendance avec `DOMParser`. Il faut lisser l'altitude (le bruit GPS gonfle le D+) et gérer les traces sans élévation ou sans timestamps.
 > - Cyclisme : modèle de puissance (poids cycliste + vélo, CdA, pente, résistance au roulement) pour passer de la PMA aux temps de passage.
+> - Dans le bloc "Paramétrages" de l'utilisateur ajouter une case à cocher "Ajouter un vélo". La case affiche deux champs, "Poids du vélo", "Position aéro"
 > - Course/trail : VMA × % d'intensité, avec correction de pente (type Minetti) et facteur terrain Roulant/Accidenté/Très technique. Coefficients à définir.
-> - Les 4 niveaux d'intensité doivent être mappés sur des % de PMA/VMA (ex. 60/75/85/95, à valider).
-> - Gros chantier : à découper en sous-specs (parser, modèle physique, UI). C'est le prérequis du point 5.
+> - Les 4 niveaux d'intensité doivent être mappés sur des % de PMA/VMA."Endurance fondamentale" = 60% - "Rythme modéré" = 70% - "Rythme soutenu" = 80% - "Compétition" = 85%
 > - Une trace GPX révèle des lieux (domicile) : traitement local uniquement tant que le point 6 n'est pas fait.
 
 ### 6. Appliquer le plan nutrition de l'activité sur un profil altimétrique et exporter cette vue pour 3 formats différents, "dossard", "top tube vélo", "A4".
