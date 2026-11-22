@@ -49,7 +49,7 @@ function draft(overrides: Partial<ProductDraft> = {}): ProductDraft {
 
 describe("constantes de produits", () => {
   it("expose les trois types de la SPEC", () => {
-    expect(PRODUCT_TYPES).toEqual(["Gel", "Barre", "Pâte de fruit"]);
+    expect(PRODUCT_TYPES).toEqual(["Gel", "Barre", "Pate"]);
   });
 
   it("limite la sélection à trois produits", () => {
@@ -83,9 +83,13 @@ describe("validateProduct", () => {
   });
 
   it("borne les valeurs numériques", () => {
-    expect(validateProduct(draft({ kcal: "1001" })).kcal).toMatch(/entre 0 et 1000/);
+    expect(validateProduct(draft({ kcal: "1001" })).kcal).toMatch(
+      /entre 0 et 1000/,
+    );
     expect(validateProduct(draft({ salt: "6" })).salt).toMatch(/entre 0 et 5/);
-    expect(validateProduct(draft({ weight: "0" })).weight).toMatch(/entre 1 et 500/);
+    expect(validateProduct(draft({ weight: "0" })).weight).toMatch(
+      /entre 1 et 500/,
+    );
   });
 
   it("exige des glucides > 0 et au plus égaux au poids", () => {
@@ -94,9 +98,9 @@ describe("validateProduct", () => {
   });
 
   it("exige un type de la liste", () => {
-    expect(validateProduct(draft({ type: "Compote" as ProductDraft["type"] }))).toHaveProperty(
-      "type",
-    );
+    expect(
+      validateProduct(draft({ type: "Compote" as ProductDraft["type"] })),
+    ).toHaveProperty("type");
   });
 
   it("limite les textes à 50 caractères", () => {
@@ -134,7 +138,10 @@ describe("gestion de la liste", () => {
   });
 
   it("modifie un produit par son identifiant", () => {
-    const list = updateProduct([product(), product({ id: "b" })], product({ name: "Barre salée" }));
+    const list = updateProduct(
+      [product(), product({ id: "b" })],
+      product({ name: "Barre salée" }),
+    );
     expect(list).toHaveLength(2);
     expect(list[0].name).toBe("Barre salée");
     expect(list[1].id).toBe("b");

@@ -78,7 +78,11 @@ function readText(value: unknown): string | null {
 }
 
 /** Un champ numérique peut être vide (non encore saisi), sinon il doit être dans les bornes. */
-function readOptionalNumber(value: unknown, min: number, max: number): string | null {
+function readOptionalNumber(
+  value: unknown,
+  min: number,
+  max: number,
+): string | null {
   if (typeof value !== "string") {
     return null;
   }
@@ -118,7 +122,11 @@ function readProduct(value: unknown): Product | null {
   const type = record.type;
   const kcal = readNumber(record.kcal, PRODUCT_KCAL_MIN, PRODUCT_KCAL_MAX);
   const salt = readNumber(record.salt, PRODUCT_SALT_MIN, PRODUCT_SALT_MAX);
-  const weight = readNumber(record.weight, PRODUCT_WEIGHT_MIN, PRODUCT_WEIGHT_MAX);
+  const weight = readNumber(
+    record.weight,
+    PRODUCT_WEIGHT_MIN,
+    PRODUCT_WEIGHT_MAX,
+  );
   const carbs = readNumber(record.carbs, 0, PRODUCT_WEIGHT_MAX);
 
   if (
@@ -135,7 +143,16 @@ function readProduct(value: unknown): Product | null {
     return null;
   }
 
-  return { id, brand, name, type: type as ProductType, kcal, carbs, salt, weight };
+  return {
+    id,
+    brand,
+    name,
+    type: type as ProductType,
+    kcal,
+    carbs,
+    salt,
+    weight,
+  };
 }
 
 function readProducts(value: unknown): Product[] | null {
@@ -195,11 +212,22 @@ function parseRecord(raw: string): Record<string, unknown> | null {
 }
 
 /** Relit un contenu v2 champ par champ ; null au moindre doute. */
-function readSettings(record: Record<string, unknown>): NutritionSettings | null {
-  const carbCap = readOptionalNumber(record.carbCap, CARB_CAP_MIN, CARB_CAP_MAX);
-  const sodiumCap = readOptionalNumber(record.sodiumCap, SODIUM_CAP_MIN, SODIUM_CAP_MAX);
+function readSettings(
+  record: Record<string, unknown>,
+): NutritionSettings | null {
+  const carbCap = readOptionalNumber(
+    record.carbCap,
+    CARB_CAP_MIN,
+    CARB_CAP_MAX,
+  );
+  const sodiumCap = readOptionalNumber(
+    record.sodiumCap,
+    SODIUM_CAP_MIN,
+    SODIUM_CAP_MAX,
+  );
   const products = readProducts(record.products);
-  const selectedIds = products === null ? null : readSelectedIds(record.selectedIds, products);
+  const selectedIds =
+    products === null ? null : readSelectedIds(record.selectedIds, products);
   const strategyKey = readStrategyKey(record.strategyKey);
   const drinkEnabled = record.drinkEnabled;
   const drinkBrand = readText(record.drinkBrand);
@@ -209,9 +237,21 @@ function readSettings(record: Record<string, unknown>): NutritionSettings | null
     DRINK_CONCENTRATION_MIN,
     DRINK_CONCENTRATION_MAX,
   );
-  const drinkKcalPer100 = readOptionalNumber(record.drinkKcalPer100, DRINK_KCAL_MIN, DRINK_KCAL_MAX);
-  const drinkCarbsPer100 = readOptionalNumber(record.drinkCarbsPer100, 0, DRINK_CARBS_MAX);
-  const drinkSaltPer100 = readOptionalNumber(record.drinkSaltPer100, DRINK_SALT_MIN, DRINK_SALT_MAX);
+  const drinkKcalPer100 = readOptionalNumber(
+    record.drinkKcalPer100,
+    DRINK_KCAL_MIN,
+    DRINK_KCAL_MAX,
+  );
+  const drinkCarbsPer100 = readOptionalNumber(
+    record.drinkCarbsPer100,
+    0,
+    DRINK_CARBS_MAX,
+  );
+  const drinkSaltPer100 = readOptionalNumber(
+    record.drinkSaltPer100,
+    DRINK_SALT_MIN,
+    DRINK_SALT_MAX,
+  );
 
   if (
     carbCap === null ||
@@ -254,8 +294,8 @@ function migrateProductType(value: unknown): ProductType | null {
   if (value === "Barre") {
     return "Barre";
   }
-  if (value === "Compote" || value === "Autre" || value === "Pâte de fruits") {
-    return "Pâte de fruit";
+  if (value === "Pâte de fruits") {
+    return "Pate";
   }
   return null;
 }
@@ -265,10 +305,22 @@ function migrateProduct(record: Record<string, unknown>): Product | null {
   const brand = readText(record.productBrand);
   const name = readText(record.productName);
   const type = migrateProductType(record.productType);
-  const kcal = readOptionalNumber(record.productKcal, PRODUCT_KCAL_MIN, PRODUCT_KCAL_MAX);
+  const kcal = readOptionalNumber(
+    record.productKcal,
+    PRODUCT_KCAL_MIN,
+    PRODUCT_KCAL_MAX,
+  );
   const carbs = readOptionalNumber(record.productCarbs, 0, PRODUCT_WEIGHT_MAX);
-  const salt = readOptionalNumber(record.productSalt, PRODUCT_SALT_MIN, PRODUCT_SALT_MAX);
-  const weight = readOptionalNumber(record.productWeight, PRODUCT_WEIGHT_MIN, PRODUCT_WEIGHT_MAX);
+  const salt = readOptionalNumber(
+    record.productSalt,
+    PRODUCT_SALT_MIN,
+    PRODUCT_SALT_MAX,
+  );
+  const weight = readOptionalNumber(
+    record.productWeight,
+    PRODUCT_WEIGHT_MIN,
+    PRODUCT_WEIGHT_MAX,
+  );
 
   if (
     brand === null ||
@@ -288,7 +340,12 @@ function migrateProduct(record: Record<string, unknown>): Product | null {
   const carbsValue = parseDecimal(carbs);
   const saltValue = parseDecimal(salt);
   const weightValue = parseDecimal(weight);
-  if (kcalValue === null || carbsValue === null || saltValue === null || weightValue === null) {
+  if (
+    kcalValue === null ||
+    carbsValue === null ||
+    saltValue === null ||
+    weightValue === null
+  ) {
     return null;
   }
   if (carbsValue <= 0 || carbsValue > weightValue) {
@@ -340,8 +397,16 @@ export function loadNutrition(): NutritionSettings | null {
     return null;
   }
 
-  const carbCap = readOptionalNumber(legacy.carbCap, CARB_CAP_MIN, CARB_CAP_MAX);
-  const sodiumCap = readOptionalNumber(legacy.sodiumCap, SODIUM_CAP_MIN, SODIUM_CAP_MAX);
+  const carbCap = readOptionalNumber(
+    legacy.carbCap,
+    CARB_CAP_MIN,
+    CARB_CAP_MAX,
+  );
+  const sodiumCap = readOptionalNumber(
+    legacy.sodiumCap,
+    SODIUM_CAP_MIN,
+    SODIUM_CAP_MAX,
+  );
   const drinkEnabled = legacy.drinkEnabled;
   const drinkBrand = readText(legacy.drinkBrand);
   const drinkName = readText(legacy.drinkName);
@@ -355,8 +420,16 @@ export function loadNutrition(): NutritionSettings | null {
     DRINK_KCAL_MIN,
     DRINK_KCAL_MAX,
   );
-  const drinkCarbsPer100 = readOptionalNumber(legacy.drinkCarbsPer100, 0, DRINK_CARBS_MAX);
-  const drinkSaltPer100 = readOptionalNumber(legacy.drinkSaltPer100, DRINK_SALT_MIN, DRINK_SALT_MAX);
+  const drinkCarbsPer100 = readOptionalNumber(
+    legacy.drinkCarbsPer100,
+    0,
+    DRINK_CARBS_MAX,
+  );
+  const drinkSaltPer100 = readOptionalNumber(
+    legacy.drinkSaltPer100,
+    DRINK_SALT_MIN,
+    DRINK_SALT_MAX,
+  );
 
   if (
     carbCap === null ||

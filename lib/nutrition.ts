@@ -16,7 +16,13 @@ export const SODIUM_CAP_RECOMMENDED = { min: 300, max: 1000 };
 export const MINUTES_MIN = 1;
 export const MINUTES_MAX = 1440;
 
-export const PRODUCT_TYPES = ["Barre", "Gel", "Compote", "Pâte de fruits", "Autre"] as const;
+export const PRODUCT_TYPES = [
+  "Barre",
+  "Gel",
+  "Compote",
+  "Pate",
+  "Autre",
+] as const;
 export type ProductType = (typeof PRODUCT_TYPES)[number];
 
 export const TEXT_MAX_LENGTH = 50;
@@ -50,7 +56,8 @@ export const HYDRATION_CAP_RECOMMENDED = { min: 400, max: 800 };
 /** Échelle de la timeline verticale : 20 px par tranche de 10 min. */
 export const TIMELINE_PX_PER_10_MIN = 20;
 
-export const WARNING_DRINK_CONCENTRATION = "Réduis la concentration de la boisson.";
+export const WARNING_DRINK_CONCENTRATION =
+  "Réduis la concentration de la boisson.";
 export const WARNING_NO_UNIT_FITS = "Une unité dépasserait le plafond.";
 
 export type NutritionFormValues = {
@@ -118,7 +125,12 @@ export type NutritionPlan = {
   warnings: string[];
 };
 
-function rangeMessage(label: string, min: number, max: number, unit: string): string {
+function rangeMessage(
+  label: string,
+  min: number,
+  max: number,
+  unit: string,
+): string {
   return `${label} : la valeur doit être entre ${min} et ${max} ${unit}.`;
 }
 
@@ -138,28 +150,45 @@ function isProductType(value: string): value is ProductType {
 }
 
 /** Valide chaque champ ; les champs de la boisson sont ignorés si la case est décochée. */
-export function validateNutritionInputs(values: NutritionFormValues): NutritionFieldErrors {
+export function validateNutritionInputs(
+  values: NutritionFormValues,
+): NutritionFieldErrors {
   const errors: NutritionFieldErrors = {};
 
   const carbCap = parseDecimal(values.carbCap);
   if (carbCap === null) {
     errors.carbCap = "Les glucides max sont obligatoires.";
   } else if (carbCap < CARB_CAP_MIN || carbCap > CARB_CAP_MAX) {
-    errors.carbCap = rangeMessage("Les glucides max", CARB_CAP_MIN, CARB_CAP_MAX, "g/h");
+    errors.carbCap = rangeMessage(
+      "Les glucides max",
+      CARB_CAP_MIN,
+      CARB_CAP_MAX,
+      "g/h",
+    );
   }
 
   const sodiumCap = parseDecimal(values.sodiumCap);
   if (sodiumCap === null) {
     errors.sodiumCap = "Le sodium max est obligatoire.";
   } else if (sodiumCap < SODIUM_CAP_MIN || sodiumCap > SODIUM_CAP_MAX) {
-    errors.sodiumCap = rangeMessage("Le sodium max", SODIUM_CAP_MIN, SODIUM_CAP_MAX, "mg/h");
+    errors.sodiumCap = rangeMessage(
+      "Le sodium max",
+      SODIUM_CAP_MIN,
+      SODIUM_CAP_MAX,
+      "mg/h",
+    );
   }
 
   const minutes = parseDecimal(values.minutes);
   if (minutes === null) {
     errors.minutes = "La durée de l'effort est obligatoire.";
   } else if (minutes < MINUTES_MIN || minutes > MINUTES_MAX) {
-    errors.minutes = rangeMessage("La durée de l'effort", MINUTES_MIN, MINUTES_MAX, "minutes");
+    errors.minutes = rangeMessage(
+      "La durée de l'effort",
+      MINUTES_MIN,
+      MINUTES_MAX,
+      "minutes",
+    );
   }
 
   const productBrandError = textError(values.productBrand, "La marque");
@@ -191,7 +220,10 @@ export function validateNutritionInputs(values: NutritionFormValues): NutritionF
   const productWeight = parseDecimal(values.productWeight);
   if (productWeight === null) {
     errors.productWeight = "Le poids de l'unité est obligatoire.";
-  } else if (productWeight < PRODUCT_WEIGHT_MIN || productWeight > PRODUCT_WEIGHT_MAX) {
+  } else if (
+    productWeight < PRODUCT_WEIGHT_MIN ||
+    productWeight > PRODUCT_WEIGHT_MAX
+  ) {
     errors.productWeight = rangeMessage(
       "Le poids de l'unité",
       PRODUCT_WEIGHT_MIN,
@@ -203,7 +235,10 @@ export function validateNutritionInputs(values: NutritionFormValues): NutritionF
   const productCarbs = parseDecimal(values.productCarbs);
   if (productCarbs === null) {
     errors.productCarbs = "Les glucides de l'unité sont obligatoires.";
-  } else if (productCarbs <= 0 || (productWeight !== null && productCarbs > productWeight)) {
+  } else if (
+    productCarbs <= 0 ||
+    (productWeight !== null && productCarbs > productWeight)
+  ) {
     errors.productCarbs =
       "Les glucides de l'unité doivent être supérieurs à 0 et ne pas dépasser le poids de l'unité.";
   }
@@ -212,11 +247,19 @@ export function validateNutritionInputs(values: NutritionFormValues): NutritionF
   if (productSalt === null) {
     errors.productSalt = "Le sel de l'unité est obligatoire.";
   } else if (productSalt < PRODUCT_SALT_MIN || productSalt > PRODUCT_SALT_MAX) {
-    errors.productSalt = rangeMessage("Le sel de l'unité", PRODUCT_SALT_MIN, PRODUCT_SALT_MAX, "g");
+    errors.productSalt = rangeMessage(
+      "Le sel de l'unité",
+      PRODUCT_SALT_MIN,
+      PRODUCT_SALT_MAX,
+      "g",
+    );
   }
 
   if (values.drinkEnabled) {
-    const drinkBrandError = textError(values.drinkBrand, "La marque de la boisson");
+    const drinkBrandError = textError(
+      values.drinkBrand,
+      "La marque de la boisson",
+    );
     if (drinkBrandError) {
       errors.drinkBrand = drinkBrandError;
     }
@@ -229,7 +272,10 @@ export function validateNutritionInputs(values: NutritionFormValues): NutritionF
     const concentration = parseDecimal(values.drinkConcentration);
     if (concentration === null) {
       errors.drinkConcentration = "La concentration est obligatoire.";
-    } else if (concentration < DRINK_CONCENTRATION_MIN || concentration > DRINK_CONCENTRATION_MAX) {
+    } else if (
+      concentration < DRINK_CONCENTRATION_MIN ||
+      concentration > DRINK_CONCENTRATION_MAX
+    ) {
       errors.drinkConcentration = rangeMessage(
         "La concentration",
         DRINK_CONCENTRATION_MIN,
@@ -240,7 +286,8 @@ export function validateNutritionInputs(values: NutritionFormValues): NutritionF
 
     const drinkKcal = parseDecimal(values.drinkKcalPer100);
     if (drinkKcal === null) {
-      errors.drinkKcalPer100 = "L'énergie pour 100 g de poudre est obligatoire.";
+      errors.drinkKcalPer100 =
+        "L'énergie pour 100 g de poudre est obligatoire.";
     } else if (drinkKcal < DRINK_KCAL_MIN || drinkKcal > DRINK_KCAL_MAX) {
       errors.drinkKcalPer100 = rangeMessage(
         "L'énergie pour 100 g de poudre",
@@ -252,7 +299,8 @@ export function validateNutritionInputs(values: NutritionFormValues): NutritionF
 
     const drinkCarbs = parseDecimal(values.drinkCarbsPer100);
     if (drinkCarbs === null) {
-      errors.drinkCarbsPer100 = "Les glucides pour 100 g de poudre sont obligatoires.";
+      errors.drinkCarbsPer100 =
+        "Les glucides pour 100 g de poudre sont obligatoires.";
     } else if (drinkCarbs <= 0 || drinkCarbs > DRINK_CARBS_MAX) {
       errors.drinkCarbsPer100 =
         "Les glucides pour 100 g de poudre doivent être supérieurs à 0 et au plus 100 g.";
@@ -275,7 +323,9 @@ export function validateNutritionInputs(values: NutritionFormValues): NutritionF
 }
 
 /** Plan de nutrition complet, ou null si le formulaire contient une erreur. */
-export function computeNutritionPlan(values: NutritionFormValues): NutritionPlan | null {
+export function computeNutritionPlan(
+  values: NutritionFormValues,
+): NutritionPlan | null {
   if (Object.keys(validateNutritionInputs(values)).length > 0) {
     return null;
   }
@@ -331,13 +381,19 @@ export function computeNutritionPlan(values: NutritionFormValues): NutritionPlan
   const unitSodium = productSalt * SODIUM_MG_PER_GRAM_SALT;
   const unitsByCarbs = Math.floor(carbsBudget / productCarbs);
   const unitsBySodium =
-    unitSodium > 0 ? Math.floor(sodiumBudget / unitSodium) : Number.POSITIVE_INFINITY;
+    unitSodium > 0
+      ? Math.floor(sodiumBudget / unitSodium)
+      : Number.POSITIVE_INFINITY;
 
   const units = Math.min(unitsByCarbs, unitsBySodium);
-  const limitingFactor: "carbs" | "sodium" = unitsByCarbs <= unitsBySodium ? "carbs" : "sodium";
+  const limitingFactor: "carbs" | "sodium" =
+    unitsByCarbs <= unitsBySodium ? "carbs" : "sodium";
 
   const warnings: string[] = [];
-  if (drink && (drink.carbsG / hours > carbCap || drink.sodiumMg / hours > sodiumCap)) {
+  if (
+    drink &&
+    (drink.carbsG / hours > carbCap || drink.sodiumMg / hours > sodiumCap)
+  ) {
     warnings.push(WARNING_DRINK_CONCENTRATION);
   }
   if (units === 0 && carbsBudget > 0) {
@@ -401,7 +457,10 @@ export type NutritionTimeline = {
 };
 
 /** Part du plafond consommée : ratio = valeur / plafond. */
-export function computeCapUsage(value: number, cap: number): { ratio: number; exceeded: boolean } {
+export function computeCapUsage(
+  value: number,
+  cap: number,
+): { ratio: number; exceeded: boolean } {
   return { ratio: value / cap, exceeded: value > cap };
 }
 
@@ -527,7 +586,10 @@ export type MultiProductPlan = {
 };
 
 /** Boisson calculée à partir de la durée : une prise toutes les 15 min. */
-function buildDrinkIntake(minutes: number, input: DrinkInput | null): DrinkIntake | null {
+function buildDrinkIntake(
+  minutes: number,
+  input: DrinkInput | null,
+): DrinkIntake | null {
   if (!input) {
     return null;
   }
@@ -547,7 +609,9 @@ function buildDrinkIntake(minutes: number, input: DrinkInput | null): DrinkIntak
 }
 
 /** Plan de nutrition de plusieurs produits : budgets répartis selon les parts. */
-export function computeMultiProductPlan(input: MultiProductInput): MultiProductPlan {
+export function computeMultiProductPlan(
+  input: MultiProductInput,
+): MultiProductPlan {
   const hours = input.minutes / 60;
   const drink = buildDrinkIntake(input.minutes, input.drink);
 
@@ -567,7 +631,9 @@ export function computeMultiProductPlan(input: MultiProductInput): MultiProductP
     const unitsByCarbs =
       product.carbs > 0 ? Math.floor(productCarbsBudget / product.carbs) : 0;
     const unitsBySodium =
-      unitSodium > 0 ? Math.floor(productSodiumBudget / unitSodium) : Number.POSITIVE_INFINITY;
+      unitSodium > 0
+        ? Math.floor(productSodiumBudget / unitSodium)
+        : Number.POSITIVE_INFINITY;
 
     return {
       productId: product.id,
@@ -580,7 +646,9 @@ export function computeMultiProductPlan(input: MultiProductInput): MultiProductP
   let sodiumMg = drinkSodium;
   let kcal = drinkKcal;
   for (const item of items) {
-    const product = input.products.find((candidate) => candidate.id === item.productId);
+    const product = input.products.find(
+      (candidate) => candidate.id === item.productId,
+    );
     if (!product) {
       continue;
     }
@@ -591,13 +659,20 @@ export function computeMultiProductPlan(input: MultiProductInput): MultiProductP
 
   let limitingFactor: "carbs" | "sodium" = "carbs";
   if (items.length > 0) {
-    const rest = items.reduce((least, item) => (item.units < least.units ? item : least), items[0]);
+    const rest = items.reduce(
+      (least, item) => (item.units < least.units ? item : least),
+      items[0],
+    );
     limitingFactor = rest.limitingFactor;
   }
 
   const totalUnits = items.reduce((sum, item) => sum + item.units, 0);
   const warnings: string[] = [];
-  if (drink && (drink.carbsG / hours > input.carbCap || drink.sodiumMg / hours > input.sodiumCap)) {
+  if (
+    drink &&
+    (drink.carbsG / hours > input.carbCap ||
+      drink.sodiumMg / hours > input.sodiumCap)
+  ) {
     warnings.push(WARNING_DRINK_CONCENTRATION);
   }
   if (items.length > 0 && totalUnits === 0) {
@@ -630,9 +705,14 @@ export type MultiTimelineInput = {
 };
 
 /** Ordre de consommation des unités : séquence A puis B… ou alternance A, B, A, B… */
-function consumptionOrder(items: MultiProductItem[], order: MultiTimelineInput["order"]): string[] {
+function consumptionOrder(
+  items: MultiProductItem[],
+  order: MultiTimelineInput["order"],
+): string[] {
   if (order === "sequence") {
-    return items.flatMap((item) => Array.from({ length: item.units }, () => item.productId));
+    return items.flatMap((item) =>
+      Array.from({ length: item.units }, () => item.productId),
+    );
   }
 
   const remaining = items.map((item) => item.units);
@@ -652,7 +732,9 @@ function consumptionOrder(items: MultiProductItem[], order: MultiTimelineInput["
 }
 
 /** Timeline multi-produits : une prise solide par unité, dans l'ordre choisi. */
-export function buildMultiProductTimeline(input: MultiTimelineInput): NutritionTimeline {
+export function buildMultiProductTimeline(
+  input: MultiTimelineInput,
+): NutritionTimeline {
   const events: TimelineEvent[] = [];
 
   if (input.drink && input.drink.servings > 0) {
@@ -670,7 +752,9 @@ export function buildMultiProductTimeline(input: MultiTimelineInput): NutritionT
 
   const sequence = consumptionOrder(input.items, input.order);
   sequence.forEach((productId, index) => {
-    const product = input.products.find((candidate) => candidate.id === productId);
+    const product = input.products.find(
+      (candidate) => candidate.id === productId,
+    );
     if (!product) {
       return;
     }

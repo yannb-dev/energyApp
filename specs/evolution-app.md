@@ -6,8 +6,10 @@
 4. Stocker les données utilisateurs en BDD NEON, enregistrer les produits solides, liquides et boissons.
 5. Définir une activité en fonction d'une trace GPX, d'une VMA ou d'une PMA
 6. Appliquer le plan nutrition de l'activité sur un profil altimétrique et exporter cette vue pour 3 formats différents, "dossard", "top tube vélo", "A4".
-7. Créer un feedBack des activités enregistrer afin d'adapter les différents calculs et répartition des produits ingérés.
-8. Ajouter une page "After-Activity" qui apport un plan pour la reconstruction des réserves glucidiques, hydriques et des apports en protéines.
+7. Appliquer des correction UI/UX pour une meilleur exprérience uitilisateur.
+8. Créer un feedBack des activités enregistrer afin d'adapter les différents calculs et répartition des produits ingérés.
+9. Ajouter une page "After-Activity" qui apport un plan pour la reconstruction des réserves glucidiques, hydriques et des apports en protéines.
+10. Appliquer un nettoyage de la code base pour retirer le code mort.
 
 ## Détail de chaque nouvelle fonctionnalité
 
@@ -117,7 +119,26 @@ L'export doit permettre à l'utilisateur d'enregistrer une image format .jpeg ou
 > - Les 3 formats ont des dimensions et une lisibilité très différentes (dossard et top tube : très petit, gros texte, peu d'infos). Dimensions cibles à définir (ex. top tube ≈ 20×3 cm).
 > - Ajouter des tests de non-régression sur les plafonds après décalage des prises.
 
-### 7. Créer un feedBack des activités enregistrer afin d'adapter les différents calculs et répartition des produits ingérés.
+### 7. Appliquer des correction UI/UX pour une meilleur exprérience uitilisateur.
+
+> - Création d'un log pour l'app via Inkscape
+
+- [x] Ajouter les différents logos dans /public
+- [x] Ajouter les png dans NutritionIcon
+- [x] Simplifier le fichier NutritionIcon.tsx (duplication)
+- [x] Getions des tailles directement depuis le composant qu'il l'utilise. Ajouter une props dynamique en className
+- [ ] Création d'un test pour NutritionIcon.tsx
+
+> - Pour l'activité vélo ne proposer que les km/h (supprimer les mm:ss, attention aux tests)
+> - Pour l'activité ski de randonnée étudier la possiblité de calculer la durée de l'effort via la VMA et la Vitesse Ascensionnel
+> - Intégration du bloc "Plafonds à respecter" à déplacer dnas le bloc "Activité".
+> - Si calcul automatique retirer le button "Calculer" dans le bloc "Activité"
+> - Restructuration des blocs UI/UX
+
+**Page 1** Paramétrage du sportif" fenêtre replié si données présente en local-storage puis deux blocs "Activité" (retirer le profil + tour 1km) et "Alimentation" _Aucun résultats dans ce bloc_
+**Page 2** Utilisation d'un infotool uniquement pour rappeler le rappel de l'activité et des produit utilisés pour l'activité. Puis un bloc "Résultats avec 3 sous-blocs "DEJ + Dépense activité" + "Récap produits" _Ajouter dette énergétique en face de ingéré_ _ajouter toutes les 15min sur la prise de boisson_ + "Timeline" _Intégration dans le profil du parcours_
+
+### 8. Créer un feedBack des activités enregistrer afin d'adapter les différents calculs et répartition des produits ingérés.
 
 Afin d'améliorer l'expérience utilisateur, l'activité enregistré peut recevoir un feedBack afin d'adapter les formules de calcul.
 
@@ -139,6 +160,6 @@ Question fixe : [
 > - Problème gastrique : ajouter un message de prudence (consulter un professionnel si récurrent) pour rester hors du champ santé.
 > - L'ajustement est propre à l'utilisateur et doit rester réversible.
 
-### 8. Ajouter une page "After-Activity" qui apport un plan pour la reconstruction des réserves glucidiques, hydriques et des apports en protéines.
+### 9. Ajouter une page "After-Activity" qui apport un plan pour la reconstruction des réserves glucidiques, hydriques et des apports en protéines.
 
-### 9. Effectuer un nettoyage pour supprimer le code mort.
+### 10. Effectuer un nettoyage pour supprimer le code mort.

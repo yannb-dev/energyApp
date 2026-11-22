@@ -52,7 +52,7 @@ const PATE: Product = {
   id: "pate",
   brand: "Baovola",
   name: "Pâte pomme",
-  type: "Pâte de fruit",
+  type: "Pate",
   kcal: 90,
   carbs: 18,
   salt: 0,
@@ -63,7 +63,7 @@ const COMPOTE: Product = {
   id: "compote",
   brand: "Materne",
   name: "Compote poire",
-  type: "Pâte de fruit",
+  type: "Pate",
   kcal: 80,
   carbs: 16,
   salt: 0,
@@ -127,7 +127,10 @@ function row(name: string): HTMLElement {
 async function fillDrink(u: User) {
   await u.click(screen.getByLabelText("Ajouter une boisson énergétique"));
   await u.type(screen.getByLabelText("Marque de la boisson"), "Overstims");
-  await u.type(screen.getByLabelText("Nom de la boisson"), "Boisson énergétique");
+  await u.type(
+    screen.getByLabelText("Nom de la boisson"),
+    "Boisson énergétique",
+  );
   await u.type(screen.getByLabelText("Concentration (g/L)"), "40");
   await u.type(screen.getByLabelText("Énergie pour 100 g (kcal)"), "380");
   await u.type(screen.getByLabelText("Glucides pour 100 g (g)"), "75");
@@ -148,9 +151,15 @@ describe("NutritionPlanner", () => {
   it("affiche les plafonds, la liste de produits, la boisson et les actions", () => {
     render(<NutritionPlanner minutes="" effort={EFFORT} />);
 
-    expect(screen.getByRole("heading", { level: 2, name: "Plafond à respecter" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Produits" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Boisson" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Plafond à respecter" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Produits" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Boisson" }),
+    ).toBeInTheDocument();
 
     expect(screen.getByLabelText("Glucides max (g/h)")).toHaveValue(60);
     expect(screen.getByLabelText("Sodium max (mg/h)")).toHaveValue(600);
@@ -159,11 +168,19 @@ describe("NutritionPlanner", () => {
     expect(screen.getByLabelText("Marque")).toBeInTheDocument();
     expect(screen.getByLabelText("Nom du produit")).toBeInTheDocument();
     expect(screen.getByLabelText("Type")).toBeInTheDocument();
-    expect(screen.getByLabelText("Ajouter une boisson énergétique")).not.toBeChecked();
+    expect(
+      screen.getByLabelText("Ajouter une boisson énergétique"),
+    ).not.toBeChecked();
 
-    expect(screen.getByRole("button", { name: "Calculer ma nutrition" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Réinitialiser la nutrition" })).toBeInTheDocument();
-    expect(screen.queryByLabelText("Stratégie d'alimentation")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Calculer ma nutrition" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Réinitialiser la nutrition" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Stratégie d'alimentation"),
+    ).not.toBeInTheDocument();
   });
 
   it("ajoute un produit, le sélectionne et replie le formulaire", async () => {
@@ -175,14 +192,20 @@ describe("NutritionPlanner", () => {
     expect(screen.queryByLabelText("Marque")).not.toBeInTheDocument();
     expect(screen.getByText("Barre endurance")).toBeInTheDocument();
     expect(screen.getByText("Barre", { selector: "span" })).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "Sélectionner Barre endurance" })).toBeChecked();
-    expect(within(row("Barre endurance")).getByText("Produit A")).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "Sélectionner Barre endurance" }),
+    ).toBeChecked();
+    expect(
+      within(row("Barre endurance")).getByText("Produit A"),
+    ).toBeInTheDocument();
   });
 
   it("garde le formulaire ouvert et affiche les erreurs s'il est incomplet", async () => {
     render(<NutritionPlanner minutes="120" effort={EFFORT} />);
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "Valider le produit" }));
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "Valider le produit" }));
 
     expect(screen.getByText("La marque est obligatoire.")).toBeInTheDocument();
     expect(screen.getByText("Choisis un type de produit.")).toBeInTheDocument();
@@ -190,12 +213,17 @@ describe("NutritionPlanner", () => {
   });
 
   it("rouvre un produit avec « Modifier » et enregistre la modification", async () => {
-    window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(SETTINGS));
+    window.localStorage.setItem(
+      NUTRITION_STORAGE_KEY,
+      JSON.stringify(SETTINGS),
+    );
 
     render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
-    await u.click(screen.getByRole("button", { name: "Modifier Barre endurance" }));
+    await u.click(
+      screen.getByRole("button", { name: "Modifier Barre endurance" }),
+    );
 
     expect(screen.getByLabelText("Marque")).toHaveValue("Overstims");
     await u.clear(screen.getByLabelText("Nom du produit"));
@@ -204,24 +232,37 @@ describe("NutritionPlanner", () => {
 
     expect(screen.getByText("Barre salée")).toBeInTheDocument();
     expect(screen.queryByText("Barre endurance")).not.toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "Sélectionner Barre salée" })).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Sélectionner Barre salée" }),
+    ).toBeChecked();
   });
 
   it("sélectionne et désélectionne un produit", async () => {
-    window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(SETTINGS));
+    window.localStorage.setItem(
+      NUTRITION_STORAGE_KEY,
+      JSON.stringify(SETTINGS),
+    );
 
     render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
-    const barre = screen.getByRole("checkbox", { name: "Sélectionner Barre endurance" });
+    const barre = screen.getByRole("checkbox", {
+      name: "Sélectionner Barre endurance",
+    });
     expect(barre).toBeChecked();
-    expect(within(row("Barre endurance")).getByText("Produit A")).toBeInTheDocument();
+    expect(
+      within(row("Barre endurance")).getByText("Produit A"),
+    ).toBeInTheDocument();
 
     await u.click(barre);
 
     expect(barre).not.toBeChecked();
-    expect(within(row("Barre endurance")).queryByText("Produit A")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Stratégie d'alimentation")).not.toBeInTheDocument();
+    expect(
+      within(row("Barre endurance")).queryByText("Produit A"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Stratégie d'alimentation"),
+    ).not.toBeInTheDocument();
   });
 
   it("refuse un quatrième produit sélectionné (exemple 12)", async () => {
@@ -237,74 +278,117 @@ describe("NutritionPlanner", () => {
 
     render(<NutritionPlanner minutes="120" effort={EFFORT} />);
 
-    const compote = screen.getByRole("checkbox", { name: "Sélectionner Compote poire" });
+    const compote = screen.getByRole("checkbox", {
+      name: "Sélectionner Compote poire",
+    });
     expect(compote).toBeDisabled();
-    expect(screen.getByText("Tu peux sélectionner 3 produits au maximum.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Tu peux sélectionner 3 produits au maximum."),
+    ).toBeInTheDocument();
   });
 
   it("déplace un produit avec les chevrons (exemple 9)", async () => {
-    window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(SETTINGS));
+    window.localStorage.setItem(
+      NUTRITION_STORAGE_KEY,
+      JSON.stringify(SETTINGS),
+    );
 
     render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
-    expect(within(row("Barre endurance")).getByText("Produit A")).toBeInTheDocument();
+    expect(
+      within(row("Barre endurance")).getByText("Produit A"),
+    ).toBeInTheDocument();
     expect(within(row("Gel café")).getByText("Produit B")).toBeInTheDocument();
 
     await u.click(screen.getByRole("button", { name: "Monter Produit B" }));
 
     expect(within(row("Gel café")).getByText("Produit A")).toBeInTheDocument();
-    expect(within(row("Barre endurance")).getByText("Produit B")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Monter Produit A" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Descendre Produit B" })).toBeDisabled();
+    expect(
+      within(row("Barre endurance")).getByText("Produit B"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Monter Produit A" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Descendre Produit B" }),
+    ).toBeDisabled();
 
     await u.click(screen.getByRole("button", { name: "Descendre Produit A" }));
 
-    expect(within(row("Barre endurance")).getByText("Produit A")).toBeInTheDocument();
+    expect(
+      within(row("Barre endurance")).getByText("Produit A"),
+    ).toBeInTheDocument();
   });
 
   it("supprime un produit sélectionné et recalcule la stratégie (exemple 10)", async () => {
-    window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(SETTINGS));
+    window.localStorage.setItem(
+      NUTRITION_STORAGE_KEY,
+      JSON.stringify(SETTINGS),
+    );
 
     render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
-    expect(screen.getByLabelText("Stratégie d'alimentation")).toHaveValue("mixte50");
+    expect(screen.getByLabelText("Stratégie d'alimentation")).toHaveValue(
+      "mixte50",
+    );
 
     await u.click(screen.getByRole("button", { name: "Supprimer Gel café" }));
 
     expect(screen.queryByText("Gel café")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Stratégie d'alimentation")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Stratégie d'alimentation"),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Barre endurance")).toBeInTheDocument();
   });
 
   it("affiche le dropdown de stratégie dès deux solides (exemples 2 à 5)", async () => {
-    window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(SETTINGS));
+    window.localStorage.setItem(
+      NUTRITION_STORAGE_KEY,
+      JSON.stringify(SETTINGS),
+    );
 
     render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
     const strategy = screen.getByLabelText("Stratégie d'alimentation");
     expect(strategy).toHaveValue("mixte50");
-    expect(screen.getByText("Répartition équitable, A puis B")).toBeInTheDocument();
+    expect(
+      screen.getByText("Répartition équitable, A puis B"),
+    ).toBeInTheDocument();
 
     await u.selectOptions(strategy, "variable");
-    expect(screen.getByText("Un produit différent une fois sur deux")).toBeInTheDocument();
+    expect(
+      screen.getByText("Un produit différent une fois sur deux"),
+    ).toBeInTheDocument();
 
-    expect(screen.getByRole("button", { name: "Aide : stratégie d'alimentation" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Aide : stratégie d'alimentation" }),
+    ).toBeInTheDocument();
   });
 
   it("revient à la première stratégie en passant de 2 à 3 solides (exemple 11)", async () => {
-    window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(SETTINGS));
+    window.localStorage.setItem(
+      NUTRITION_STORAGE_KEY,
+      JSON.stringify(SETTINGS),
+    );
 
     render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
-    await u.selectOptions(screen.getByLabelText("Stratégie d'alimentation"), "variable");
+    await u.selectOptions(
+      screen.getByLabelText("Stratégie d'alimentation"),
+      "variable",
+    );
 
-    await u.click(screen.getByRole("checkbox", { name: "Sélectionner Pâte pomme" }));
+    await u.click(
+      screen.getByRole("checkbox", { name: "Sélectionner Pâte pomme" }),
+    );
 
-    expect(screen.getByLabelText("Stratégie d'alimentation")).toHaveValue("mixte33");
+    expect(screen.getByLabelText("Stratégie d'alimentation")).toHaveValue(
+      "mixte33",
+    );
     expect(
       screen.getByText("Répartition équitable, A, puis B, puis C"),
     ).toBeInTheDocument();
@@ -318,7 +402,9 @@ describe("NutritionPlanner", () => {
 
     expect(push).not.toHaveBeenCalled();
 
-    await u.click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
+    await u.click(
+      screen.getByRole("button", { name: "Calculer ma nutrition" }),
+    );
 
     expect(push).toHaveBeenCalledWith("/nutrition?min=120&km=10&v=12&u=kmh");
   });
@@ -333,7 +419,9 @@ describe("NutritionPlanner", () => {
     const u = userEvent.setup();
 
     await addProduct(u, { name: "Barre endurance", type: "Barre" });
-    await u.click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
+    await u.click(
+      screen.getByRole("button", { name: "Calculer ma nutrition" }),
+    );
 
     expect(push).toHaveBeenCalledWith(
       "/nutrition?min=50&km=10&v=5%3A00&u=minkm",
@@ -345,16 +433,22 @@ describe("NutritionPlanner", () => {
     const u = userEvent.setup();
 
     await addProduct(u, { name: "Barre endurance", type: "Barre" });
-    await u.click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
+    await u.click(
+      screen.getByRole("button", { name: "Calculer ma nutrition" }),
+    );
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Renseigne la durée dans le bloc Activité.");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Renseigne la durée dans le bloc Activité.",
+    );
     expect(push).not.toHaveBeenCalled();
   });
 
   it("rouvre le formulaire produit en erreur et ne navigue pas", async () => {
     render(<NutritionPlanner minutes="120" effort={EFFORT} />);
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
 
     expect(screen.getByText("La marque est obligatoire.")).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
@@ -364,13 +458,19 @@ describe("NutritionPlanner", () => {
     render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
-    expect(screen.queryByLabelText("Concentration (g/L)")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Concentration (g/L)"),
+    ).not.toBeInTheDocument();
 
     await fillDrink(u);
     await u.click(screen.getByRole("button", { name: "Valider la boisson" }));
 
-    expect(screen.queryByLabelText("Concentration (g/L)")).not.toBeInTheDocument();
-    expect(screen.getByTestId("drink-summary-name")).toHaveTextContent("Boisson énergétique");
+    expect(
+      screen.queryByLabelText("Concentration (g/L)"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("drink-summary-name")).toHaveTextContent(
+      "Boisson énergétique",
+    );
 
     await u.click(screen.getByRole("button", { name: "Modifier la boisson" }));
 
@@ -378,14 +478,17 @@ describe("NutritionPlanner", () => {
   });
 
   it("hydrate la liste depuis le stockage v2", () => {
-    window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(SETTINGS));
+    window.localStorage.setItem(
+      NUTRITION_STORAGE_KEY,
+      JSON.stringify(SETTINGS),
+    );
 
     render(<NutritionPlanner minutes="120" effort={EFFORT} />);
 
     expect(screen.queryByLabelText("Marque")).not.toBeInTheDocument();
-    expect(screen.getByText("Barre endurance")).toBeInTheDocument();
-    expect(screen.getByText("Gel café")).toBeInTheDocument();
-    expect(screen.getByLabelText("Stratégie d'alimentation")).toHaveValue("mixte50");
+    expect(screen.getByLabelText("Stratégie d'alimentation")).toHaveValue(
+      "mixte50",
+    );
   });
 
   it("migre un ancien produit v1 en « Pâte de fruit » sélectionnée (exemple 13)", () => {
@@ -414,18 +517,27 @@ describe("NutritionPlanner", () => {
     render(<NutritionPlanner minutes="120" effort={EFFORT} />);
 
     expect(screen.getByText("Compote pomme")).toBeInTheDocument();
-    expect(within(row("Compote pomme")).getByText("Pâte de fruit")).toBeInTheDocument();
-    expect(within(row("Compote pomme")).getByText("Produit A")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "Sélectionner Compote pomme" })).toBeChecked();
+    expect(within(row("Compote pomme")).getByText("Pate")).toBeInTheDocument();
+    expect(
+      within(row("Compote pomme")).getByText("Produit A"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "Sélectionner Compote pomme" }),
+    ).toBeChecked();
   });
 
   it("réinitialise les valeurs, la liste et le stockage", async () => {
-    window.localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(SETTINGS));
+    window.localStorage.setItem(
+      NUTRITION_STORAGE_KEY,
+      JSON.stringify(SETTINGS),
+    );
 
     render(<NutritionPlanner minutes="120" effort={EFFORT} />);
     const u = userEvent.setup();
 
-    await u.click(screen.getByRole("button", { name: "Réinitialiser la nutrition" }));
+    await u.click(
+      screen.getByRole("button", { name: "Réinitialiser la nutrition" }),
+    );
 
     expect(window.localStorage.getItem(NUTRITION_STORAGE_KEY)).toBeNull();
     expect(screen.queryByText("Barre endurance")).not.toBeInTheDocument();
@@ -448,7 +560,9 @@ describe("NutritionPlanner", () => {
     expect(screen.getByLabelText("Marque")).toHaveValue("");
 
     await addProduct(u, { name: "Barre endurance", type: "Barre" });
-    await u.click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
+    await u.click(
+      screen.getByRole("button", { name: "Calculer ma nutrition" }),
+    );
 
     expect(push).toHaveBeenCalledWith("/nutrition?min=120&km=10&v=12&u=kmh");
   });

@@ -35,7 +35,9 @@ import {
 } from "@/lib/nutrition";
 
 /** Barre de référence : 25 g de glucides, 0,25 g de sel, 200 kcal, 60 g. */
-function formValues(overrides: Partial<NutritionFormValues> = {}): NutritionFormValues {
+function formValues(
+  overrides: Partial<NutritionFormValues> = {},
+): NutritionFormValues {
   return {
     carbCap: "60",
     sodiumCap: "600",
@@ -74,7 +76,7 @@ describe("constantes de nutrition", () => {
   });
 
   it("expose les types de produit", () => {
-    expect(PRODUCT_TYPES).toEqual(["Barre", "Gel", "Compote", "Pâte de fruits", "Autre"]);
+    expect(PRODUCT_TYPES).toEqual(["Barre", "Gel", "Compote", "Pate", "Autre"]);
   });
 
   it("expose les constantes de conversion", () => {
@@ -91,7 +93,9 @@ describe("validateNutritionInputs", () => {
   });
 
   it("accepte un formulaire complet avec boisson", () => {
-    expect(validateNutritionInputs(formValues({ drinkEnabled: true }))).toEqual({});
+    expect(validateNutritionInputs(formValues({ drinkEnabled: true }))).toEqual(
+      {},
+    );
   });
 
   it("ignore les champs de la boisson quand la case est décochée", () => {
@@ -153,78 +157,103 @@ describe("validateNutritionInputs", () => {
   });
 
   it("borne les plafonds et la durée", () => {
-    expect(validateNutritionInputs(formValues({ carbCap: "19" })).carbCap).toMatch(/entre 20 et 120/);
-    expect(validateNutritionInputs(formValues({ carbCap: "121" })).carbCap).toMatch(/entre 20 et 120/);
-    expect(validateNutritionInputs(formValues({ sodiumCap: "99" })).sodiumCap).toMatch(
-      /entre 100 et 1500/,
-    );
-    expect(validateNutritionInputs(formValues({ sodiumCap: "1501" })).sodiumCap).toMatch(
-      /entre 100 et 1500/,
-    );
-    expect(validateNutritionInputs(formValues({ minutes: "0" })).minutes).toMatch(/entre 1 et 1440/);
-    expect(validateNutritionInputs(formValues({ minutes: "1441" })).minutes).toMatch(
-      /entre 1 et 1440/,
-    );
+    expect(
+      validateNutritionInputs(formValues({ carbCap: "19" })).carbCap,
+    ).toMatch(/entre 20 et 120/);
+    expect(
+      validateNutritionInputs(formValues({ carbCap: "121" })).carbCap,
+    ).toMatch(/entre 20 et 120/);
+    expect(
+      validateNutritionInputs(formValues({ sodiumCap: "99" })).sodiumCap,
+    ).toMatch(/entre 100 et 1500/);
+    expect(
+      validateNutritionInputs(formValues({ sodiumCap: "1501" })).sodiumCap,
+    ).toMatch(/entre 100 et 1500/);
+    expect(
+      validateNutritionInputs(formValues({ minutes: "0" })).minutes,
+    ).toMatch(/entre 1 et 1440/);
+    expect(
+      validateNutritionInputs(formValues({ minutes: "1441" })).minutes,
+    ).toMatch(/entre 1 et 1440/);
   });
 
   it("borne les champs du produit solide", () => {
-    expect(validateNutritionInputs(formValues({ productKcal: "1001" })).productKcal).toMatch(
-      /entre 0 et 1000/,
-    );
-    expect(validateNutritionInputs(formValues({ productSalt: "6" })).productSalt).toMatch(
-      /entre 0 et 5/,
-    );
-    expect(validateNutritionInputs(formValues({ productWeight: "0" })).productWeight).toMatch(
-      /entre 1 et 500/,
-    );
-    expect(validateNutritionInputs(formValues({ productWeight: "501" })).productWeight).toMatch(
-      /entre 1 et 500/,
-    );
-    expect(validateNutritionInputs(formValues({ productCarbs: "0" })).productCarbs).toBeTruthy();
-    expect(validateNutritionInputs(formValues({ productCarbs: "61" })).productCarbs).toMatch(
-      /poids/,
-    );
+    expect(
+      validateNutritionInputs(formValues({ productKcal: "1001" })).productKcal,
+    ).toMatch(/entre 0 et 1000/);
+    expect(
+      validateNutritionInputs(formValues({ productSalt: "6" })).productSalt,
+    ).toMatch(/entre 0 et 5/);
+    expect(
+      validateNutritionInputs(formValues({ productWeight: "0" })).productWeight,
+    ).toMatch(/entre 1 et 500/);
+    expect(
+      validateNutritionInputs(formValues({ productWeight: "501" }))
+        .productWeight,
+    ).toMatch(/entre 1 et 500/);
+    expect(
+      validateNutritionInputs(formValues({ productCarbs: "0" })).productCarbs,
+    ).toBeTruthy();
+    expect(
+      validateNutritionInputs(formValues({ productCarbs: "61" })).productCarbs,
+    ).toMatch(/poids/);
   });
 
   it("exige un type de produit de la liste", () => {
     const errors = validateNutritionInputs(
-      formValues({ productType: "Boisson" as NutritionFormValues["productType"] }),
+      formValues({
+        productType: "Boisson" as NutritionFormValues["productType"],
+      }),
     );
     expect(errors.productType).toBeTruthy();
   });
 
   it("limite les textes à 50 caractères", () => {
     const tropLong = "x".repeat(TEXT_MAX_LENGTH + 1);
-    expect(validateNutritionInputs(formValues({ productBrand: tropLong })).productBrand).toMatch(
-      /50/,
-    );
-    expect(validateNutritionInputs(formValues({ productName: tropLong })).productName).toMatch(/50/);
     expect(
-      validateNutritionInputs(formValues({ drinkEnabled: true, drinkBrand: tropLong })).drinkBrand,
+      validateNutritionInputs(formValues({ productBrand: tropLong }))
+        .productBrand,
+    ).toMatch(/50/);
+    expect(
+      validateNutritionInputs(formValues({ productName: tropLong }))
+        .productName,
+    ).toMatch(/50/);
+    expect(
+      validateNutritionInputs(
+        formValues({ drinkEnabled: true, drinkBrand: tropLong }),
+      ).drinkBrand,
     ).toMatch(/50/);
   });
 
   it("borne les champs de la boisson seulement si elle est activée", () => {
-    expect(validateNutritionInputs(formValues({ drinkConcentration: "151" })).drinkConcentration).toBeUndefined();
     expect(
-      validateNutritionInputs(formValues({ drinkEnabled: true, drinkConcentration: "0" }))
+      validateNutritionInputs(formValues({ drinkConcentration: "151" }))
         .drinkConcentration,
+    ).toBeUndefined();
+    expect(
+      validateNutritionInputs(
+        formValues({ drinkEnabled: true, drinkConcentration: "0" }),
+      ).drinkConcentration,
     ).toMatch(/entre 1 et 150/);
     expect(
-      validateNutritionInputs(formValues({ drinkEnabled: true, drinkKcalPer100: "501" }))
-        .drinkKcalPer100,
+      validateNutritionInputs(
+        formValues({ drinkEnabled: true, drinkKcalPer100: "501" }),
+      ).drinkKcalPer100,
     ).toMatch(/entre 0 et 500/);
     expect(
-      validateNutritionInputs(formValues({ drinkEnabled: true, drinkCarbsPer100: "0" }))
-        .drinkCarbsPer100,
+      validateNutritionInputs(
+        formValues({ drinkEnabled: true, drinkCarbsPer100: "0" }),
+      ).drinkCarbsPer100,
     ).toBeTruthy();
     expect(
-      validateNutritionInputs(formValues({ drinkEnabled: true, drinkCarbsPer100: "101" }))
-        .drinkCarbsPer100,
+      validateNutritionInputs(
+        formValues({ drinkEnabled: true, drinkCarbsPer100: "101" }),
+      ).drinkCarbsPer100,
     ).toMatch(/100/);
     expect(
-      validateNutritionInputs(formValues({ drinkEnabled: true, drinkSaltPer100: "101" }))
-        .drinkSaltPer100,
+      validateNutritionInputs(
+        formValues({ drinkEnabled: true, drinkSaltPer100: "101" }),
+      ).drinkSaltPer100,
     ).toMatch(/entre 0 et 100/);
   });
 });
@@ -330,7 +359,11 @@ describe("computeNutritionPlan — cas limites", () => {
 
   it("tranche en faveur des glucides en cas d'égalité", () => {
     const plan = computeNutritionPlan(
-      formValues({ productCarbs: "30", productWeight: "60", productSalt: "0.75" }),
+      formValues({
+        productCarbs: "30",
+        productWeight: "60",
+        productSalt: "0.75",
+      }),
     );
     expect(plan?.limits.unitsByCarbs).toBe(4);
     expect(plan?.limits.unitsBySodium).toBe(4);
@@ -376,7 +409,9 @@ describe("buildNutritionTimeline — exemple 1", () => {
 
     expect(timeline.minutes).toBe(120);
     expect(timeline.events).toHaveLength(4);
-    expect(timeline.events.map((event) => event.minute)).toEqual([15, 45, 75, 105]);
+    expect(timeline.events.map((event) => event.minute)).toEqual([
+      15, 45, 75, 105,
+    ]);
     expect(timeline.events.every((event) => event.kind === "solid")).toBe(true);
     expect(timeline.events[0].carbsG).toBeCloseTo(25, 6);
     expect(timeline.events[0].sodiumMg).toBeCloseTo(100, 6);
@@ -406,7 +441,9 @@ describe("buildNutritionTimeline — exemple 2", () => {
     const drinks = timeline.events.filter((event) => event.kind === "drink");
     const solids = timeline.events.filter((event) => event.kind === "solid");
 
-    expect(drinks.map((event) => event.minute)).toEqual([15, 30, 45, 60, 75, 90, 105, 120]);
+    expect(drinks.map((event) => event.minute)).toEqual([
+      15, 30, 45, 60, 75, 90, 105, 120,
+    ]);
     expect(drinks[0].carbsG).toBeCloseTo(4.5, 6);
     expect(drinks[0].sodiumMg).toBeCloseTo(72, 6);
     expect(solids.map((event) => event.minute)).toEqual([20, 60, 100]);
@@ -437,8 +474,12 @@ describe("buildNutritionTimeline — exemple 3", () => {
 
     expect(plan.drink?.servings).toBe(0);
     expect(timeline.minutes).toBe(10);
-    expect(timeline.events.filter((event) => event.kind === "drink")).toHaveLength(0);
-    expect(timeline.events.filter((event) => event.kind === "solid")).toHaveLength(0);
+    expect(
+      timeline.events.filter((event) => event.kind === "drink"),
+    ).toHaveLength(0);
+    expect(
+      timeline.events.filter((event) => event.kind === "solid"),
+    ).toHaveLength(0);
     expect(timeline.series[timeline.series.length - 1]).toEqual({
       minute: 10,
       carbsG: 0,
@@ -515,14 +556,19 @@ const PATE: Product = {
   id: "pate",
   brand: "Baovola",
   name: "Pâte pomme",
-  type: "Pâte de fruit",
+  type: "Pate",
   kcal: 90,
   carbs: 18,
   salt: 0,
   weight: 25,
 };
 
-const DRINK = { concentration: 40, kcalPer100: 380, carbsPer100: 75, saltPer100: 3 };
+const DRINK = {
+  concentration: 40,
+  kcalPer100: 380,
+  carbsPer100: 75,
+  saltPer100: 3,
+};
 
 function multi(overrides: Partial<MultiProductInput> = {}): MultiProductInput {
   return {
@@ -536,7 +582,10 @@ function multi(overrides: Partial<MultiProductInput> = {}): MultiProductInput {
   };
 }
 
-function itemUnits(plan: ReturnType<typeof computeMultiProductPlan>, productId: string): number {
+function itemUnits(
+  plan: ReturnType<typeof computeMultiProductPlan>,
+  productId: string,
+): number {
   return plan.items.find((item) => item.productId === productId)?.units ?? -1;
 }
 
@@ -545,7 +594,11 @@ describe("computeMultiProductPlan — exemple 1", () => {
     const plan = computeMultiProductPlan(multi());
 
     expect(plan.items).toHaveLength(1);
-    expect(plan.items[0]).toMatchObject({ productId: "barre", units: 4, limitingFactor: "carbs" });
+    expect(plan.items[0]).toMatchObject({
+      productId: "barre",
+      units: 4,
+      limitingFactor: "carbs",
+    });
     expect(plan.limitingFactor).toBe("carbs");
     expect(plan.totals.carbsG).toBeCloseTo(100, 6);
     expect(plan.totals.sodiumMg).toBeCloseTo(400, 6);
@@ -575,7 +628,9 @@ describe("computeMultiProductPlan — exemple 2", () => {
 
 describe("computeMultiProductPlan — exemple 3", () => {
   it("donne 75 % du budget à A et 25 % à B", () => {
-    const plan = computeMultiProductPlan(multi({ products: [BARRE, GEL], shares: [75, 25] }));
+    const plan = computeMultiProductPlan(
+      multi({ products: [BARRE, GEL], shares: [75, 25] }),
+    );
 
     expect(itemUnits(plan, "barre")).toBe(3);
     expect(itemUnits(plan, "gel")).toBe(1);
@@ -589,7 +644,9 @@ describe("computeMultiProductPlan — exemple 5", () => {
   const products = [BARRE, GEL, PATE];
 
   it("répartit en 33/33/34", () => {
-    const plan = computeMultiProductPlan(multi({ products, shares: [33, 33, 34] }));
+    const plan = computeMultiProductPlan(
+      multi({ products, shares: [33, 33, 34] }),
+    );
 
     expect(itemUnits(plan, "barre")).toBe(1);
     expect(itemUnits(plan, "gel")).toBe(1);
@@ -600,7 +657,9 @@ describe("computeMultiProductPlan — exemple 5", () => {
   });
 
   it("répartit en 50/25/25", () => {
-    const plan = computeMultiProductPlan(multi({ products, shares: [50, 25, 25] }));
+    const plan = computeMultiProductPlan(
+      multi({ products, shares: [50, 25, 25] }),
+    );
 
     expect(itemUnits(plan, "barre")).toBe(2);
     expect(itemUnits(plan, "gel")).toBe(1);
@@ -629,7 +688,9 @@ describe("computeMultiProductPlan — exemple 6", () => {
 
 describe("computeMultiProductPlan — exemple 7", () => {
   it("ne pose aucune limite sodium quand le produit n'en contient pas", () => {
-    const plan = computeMultiProductPlan(multi({ products: [PATE], shares: [100] }));
+    const plan = computeMultiProductPlan(
+      multi({ products: [PATE], shares: [100] }),
+    );
 
     expect(itemUnits(plan, "pate")).toBe(6);
     expect(plan.items[0].limitingFactor).toBe("carbs");
@@ -662,7 +723,9 @@ describe("computeMultiProductPlan — exemple 8", () => {
 
 describe("computeMultiProductPlan — facteur limitant global", () => {
   it("suit le produit limité par le sodium", () => {
-    const plan = computeMultiProductPlan(multi({ products: [{ ...BARRE, salt: 1 }], shares: [100] }));
+    const plan = computeMultiProductPlan(
+      multi({ products: [{ ...BARRE, salt: 1 }], shares: [100] }),
+    );
 
     expect(plan.items[0].units).toBe(3);
     expect(plan.items[0].limitingFactor).toBe("sodium");
@@ -682,7 +745,9 @@ describe("computeMultiProductPlan — facteur limitant global", () => {
 
 describe("computeMultiProductPlan — exemple 15", () => {
   it("calcule uniquement avec la boisson quand aucun solide n'est sélectionné", () => {
-    const plan = computeMultiProductPlan(multi({ products: [], shares: [], drink: DRINK }));
+    const plan = computeMultiProductPlan(
+      multi({ products: [], shares: [], drink: DRINK }),
+    );
 
     expect(plan.items).toEqual([]);
     expect(plan.totals.carbsG).toBeCloseTo(36, 6);
@@ -695,7 +760,9 @@ describe("computeMultiProductPlan — exemple 15", () => {
 
 describe("buildMultiProductTimeline — exemple 2", () => {
   it("consomme A puis B en séquence", () => {
-    const plan = computeMultiProductPlan(multi({ products: [BARRE, GEL], shares: [50, 50] }));
+    const plan = computeMultiProductPlan(
+      multi({ products: [BARRE, GEL], shares: [50, 50] }),
+    );
     const input: MultiTimelineInput = {
       minutes: 120,
       carbCap: 60,
@@ -709,17 +776,27 @@ describe("buildMultiProductTimeline — exemple 2", () => {
     const timeline = buildMultiProductTimeline(input);
     const solids = timeline.events.filter((event) => event.kind === "solid");
 
-    expect(solids.map((event) => event.productId)).toEqual(["barre", "barre", "gel", "gel"]);
+    expect(solids.map((event) => event.productId)).toEqual([
+      "barre",
+      "barre",
+      "gel",
+      "gel",
+    ]);
     expect(solids.map((event) => event.minute)).toEqual([15, 45, 75, 105]);
     expect(solids[2].carbsG).toBeCloseTo(22, 6);
     expect(solids[2].sodiumMg).toBeCloseTo(40, 6);
-    expect(timeline.series[timeline.series.length - 1].carbsG).toBeCloseTo(plan.totals.carbsG, 6);
+    expect(timeline.series[timeline.series.length - 1].carbsG).toBeCloseTo(
+      plan.totals.carbsG,
+      6,
+    );
   });
 });
 
 describe("buildMultiProductTimeline — exemple 4", () => {
   it("alterne A, B, A, B", () => {
-    const plan = computeMultiProductPlan(multi({ products: [BARRE, GEL], shares: [50, 50] }));
+    const plan = computeMultiProductPlan(
+      multi({ products: [BARRE, GEL], shares: [50, 50] }),
+    );
     const timeline = buildMultiProductTimeline({
       minutes: 120,
       carbCap: 60,
@@ -731,13 +808,20 @@ describe("buildMultiProductTimeline — exemple 4", () => {
     });
     const solids = timeline.events.filter((event) => event.kind === "solid");
 
-    expect(solids.map((event) => event.productId)).toEqual(["barre", "gel", "barre", "gel"]);
+    expect(solids.map((event) => event.productId)).toEqual([
+      "barre",
+      "gel",
+      "barre",
+      "gel",
+    ]);
   });
 });
 
 describe("buildMultiProductTimeline — exemple 9", () => {
   it("inverse l'ordre quand on déplace A et B", () => {
-    const plan = computeMultiProductPlan(multi({ products: [BARRE, GEL], shares: [50, 50] }));
+    const plan = computeMultiProductPlan(
+      multi({ products: [BARRE, GEL], shares: [50, 50] }),
+    );
     const reversed: MultiTimelineInput = {
       minutes: 120,
       carbCap: 60,
@@ -751,13 +835,20 @@ describe("buildMultiProductTimeline — exemple 9", () => {
     const timeline = buildMultiProductTimeline(reversed);
     const solids = timeline.events.filter((event) => event.kind === "solid");
 
-    expect(solids.map((event) => event.productId)).toEqual(["gel", "gel", "barre", "barre"]);
+    expect(solids.map((event) => event.productId)).toEqual([
+      "gel",
+      "gel",
+      "barre",
+      "barre",
+    ]);
   });
 });
 
 describe("buildMultiProductTimeline — boisson", () => {
   it("place les gorgées et les prises solides dans l'ordre des minutes", () => {
-    const plan = computeMultiProductPlan(multi({ products: [BARRE], drink: DRINK }));
+    const plan = computeMultiProductPlan(
+      multi({ products: [BARRE], drink: DRINK }),
+    );
     const timeline = buildMultiProductTimeline({
       minutes: 120,
       carbCap: 60,
@@ -768,8 +859,12 @@ describe("buildMultiProductTimeline — boisson", () => {
       drink: plan.drink,
     });
 
-    expect(timeline.events.filter((event) => event.kind === "drink")).toHaveLength(8);
-    expect(timeline.events.filter((event) => event.kind === "solid")).toHaveLength(3);
+    expect(
+      timeline.events.filter((event) => event.kind === "drink"),
+    ).toHaveLength(8);
+    expect(
+      timeline.events.filter((event) => event.kind === "solid"),
+    ).toHaveLength(3);
     const minutes = timeline.events.map((event) => event.minute);
     expect(minutes).toEqual([...minutes].sort((a, b) => a - b));
     expect(timeline.capLines.carbsG.to.value).toBeCloseTo(120, 6);

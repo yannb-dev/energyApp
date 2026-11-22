@@ -1,9 +1,4 @@
-import {
-  CerealBarIcon,
-  FruitPasteIcon,
-  GelIcon,
-  FlaskIcon,
-} from "@/components/NutritionIcons";
+import { SolidIcon, BottleIcon } from "@/components/NutritionIcons";
 import {
   DRINK_SERVING_ML,
   timelineOffsetPx,
@@ -23,17 +18,6 @@ function solidLabel(productType: ProductType, units: number): string {
   return `${units} ${units > 1 ? "pâtes de fruit" : "pâte de fruit"}`;
 }
 
-/** Icône du solide selon son type. */
-function SolidIcon({ type, className }: { type: ProductType; className?: string }) {
-  if (type === "Gel") {
-    return <GelIcon className={className} />;
-  }
-  if (type === "Pâte de fruit") {
-    return <FruitPasteIcon className={className} />;
-  }
-  return <CerealBarIcon className={className} />;
-}
-
 function plural(count: number, one: string, many: string): string {
   return count > 1 ? many : one;
 }
@@ -51,7 +35,11 @@ type NutritionTimelineProps = {
   timeline: TimelineData;
 };
 
-export default function NutritionTimeline({ products, plan, timeline }: NutritionTimelineProps) {
+export default function NutritionTimeline({
+  products,
+  plan,
+  timeline,
+}: NutritionTimelineProps) {
   const minutes = timeline.minutes;
   const height = timelineOffsetPx(minutes);
   const solids = timeline.events.filter((event) => event.kind === "solid");
@@ -71,29 +59,31 @@ export default function NutritionTimeline({ products, plan, timeline }: Nutritio
       aria-label={label}
       className="motion-safe:animate-rise flex flex-col gap-3"
     >
-      <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+      <ul className="flex flex-col items-center text-sm">
         {products.map((product) => {
-          const units = plan.items.find((item) => item.productId === product.id)?.units ?? 0;
+          const units =
+            plan.items.find((item) => item.productId === product.id)?.units ??
+            0;
           return (
-            <li
+            <div
               key={product.id}
               data-testid="timeline-recap-solid"
               data-product-id={product.id}
-              className="flex items-center gap-1.5 font-medium text-ink"
+              className="w-[50%] flex items-center justify-between font-medium text-ink"
             >
-              <SolidIcon type={product.type} />
+              <SolidIcon type={product.type} className="w-9" />
               {solidLabel(product.type, units)}
-            </li>
+            </div>
           );
         })}
         {plan.drink ? (
-          <li
+          <div
             data-testid="timeline-recap-drink"
-            className="flex items-center gap-1.5 font-medium text-ink"
+            className="w-[50%] flex items-center justify-between font-medium text-ink"
           >
-            <FlaskIcon />
-            {volumeMl} ml de boisson énergétique
-          </li>
+            <BottleIcon className="w-5" />
+            {volumeMl} ml
+          </div>
         ) : null}
       </ul>
 
@@ -105,7 +95,9 @@ export default function NutritionTimeline({ products, plan, timeline }: Nutritio
         >
           <div className="relative">
             {solids.map((event, index) => {
-              const product = products.find((candidate) => candidate.id === event.productId);
+              const product = products.find(
+                (candidate) => candidate.id === event.productId,
+              );
               return (
                 <div
                   key={`solid-${event.productId ?? "inconnu"}-${index}`}
@@ -114,8 +106,10 @@ export default function NutritionTimeline({ products, plan, timeline }: Nutritio
                   className="absolute right-0 flex -translate-y-1/2 items-center gap-1.5"
                   style={{ top: `${timelineOffsetPx(event.minute)}px` }}
                 >
-                  <span className="text-xs text-muted">{formatMinutes(event.minute)} min</span>
-                  <SolidIcon type={product?.type ?? "Barre"} className="h-6 w-6 shrink-0 text-accent" />
+                  <span className="text-xs text-muted">
+                    {formatMinutes(event.minute)} min
+                  </span>
+                  <SolidIcon type={product?.type} className="w-6 shrink-0" />
                 </div>
               );
             })}
@@ -135,9 +129,13 @@ export default function NutritionTimeline({ products, plan, timeline }: Nutritio
                 className="absolute left-0 flex -translate-y-1/2 items-center gap-1.5"
                 style={{ top: `${timelineOffsetPx(event.minute)}px` }}
               >
-                <FlaskIcon className="h-6 w-6 shrink-0 text-accent" />
-                <span className="text-xs text-muted">{formatMinutes(event.minute)} min</span>
-                <span className="text-xs text-muted">{DRINK_SERVING_ML} ml</span>
+                <BottleIcon className="w-2 shrink-0" />
+                <span className="text-xs text-muted">
+                  {formatMinutes(event.minute)} min
+                </span>
+                <span className="text-xs text-muted">
+                  {DRINK_SERVING_ML} ml
+                </span>
               </div>
             ))}
           </div>
