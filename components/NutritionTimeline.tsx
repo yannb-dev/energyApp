@@ -118,7 +118,7 @@ export default function NutritionTimeline({
           <div
             aria-hidden="true"
             data-testid="timeline-line"
-            className="h-full w-[10px] rounded-[3px] bg-line"
+            className="h-full w-2.5 rounded-[3px] bg-line"
           />
 
           <div className="relative">

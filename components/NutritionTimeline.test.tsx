@@ -189,7 +189,7 @@ describe("NutritionTimeline", () => {
     );
 
     const line = screen.getByTestId("timeline-line");
-    expect(line).toHaveClass("w-[10px]", "rounded-[3px]");
+    expect(line).toHaveClass("w-2.5", "rounded-[3px]");
     expect(screen.queryByText("0 min")).not.toBeInTheDocument();
   });
 

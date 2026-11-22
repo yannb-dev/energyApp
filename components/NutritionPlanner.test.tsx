@@ -491,7 +491,7 @@ describe("NutritionPlanner", () => {
     );
   });
 
-  it("migre un ancien produit v1 en « Pâte de fruit » sélectionnée (exemple 13)", () => {
+  it("migre un ancien produit v1 en « Pate » sélectionnée (exemple 13)", () => {
     window.localStorage.setItem(
       NUTRITION_STORAGE_KEY_V1,
       JSON.stringify({
