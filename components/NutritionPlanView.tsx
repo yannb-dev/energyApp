@@ -4,16 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import {
-  CerealBarIcon,
-  FruitPasteIcon,
-  GelIcon,
-  FlaskIcon,
-} from "@/components/NutritionIcons";
+import { SolidIcon, BottleIcon } from "@/components/NutritionIcons";
 import InfoTooltip from "@/components/InfoTooltip";
 import NutritionTimeline from "@/components/NutritionTimeline";
 import { parseDecimal } from "@/lib/energy";
-import { validateEffort, type EffortFormValues, type SpeedUnit } from "@/lib/effort";
+import {
+  validateEffort,
+  type EffortFormValues,
+  type SpeedUnit,
+} from "@/lib/effort";
 import { LIMITING_FACTOR_HELP } from "@/lib/helpTexts";
 import {
   buildMultiProductTimeline,
@@ -40,11 +39,22 @@ import {
   type NutritionTimeline as TimelineData,
 } from "@/lib/nutrition";
 import { loadNutrition, type NutritionSettings } from "@/lib/nutritionStorage";
-import { orderedSelected, productLabel, type Product, type ProductType } from "@/lib/products";
-import { resolveStrategy, SINGLE_STRATEGY, type Strategy } from "@/lib/strategies";
+import {
+  orderedSelected,
+  productLabel,
+  type Product,
+  type ProductType,
+} from "@/lib/products";
+import {
+  resolveStrategy,
+  SINGLE_STRATEGY,
+  type Strategy,
+} from "@/lib/strategies";
 
-const CARD = "rounded-2xl border border-line bg-surface p-4 shadow-lg shadow-canvas/60 sm:p-5";
-const CARD_TITLE = "mb-3 text-sm font-semibold uppercase tracking-wide text-muted";
+const CARD =
+  "rounded-2xl border border-line bg-surface p-4 shadow-lg shadow-canvas/60 sm:p-5";
+const CARD_TITLE =
+  "mb-3 text-sm font-semibold uppercase tracking-wide text-muted";
 const TILE = "rounded-xl border border-line bg-surface-2 p-3";
 const LINK =
   "flex h-11 items-center justify-center rounded-xl border border-line px-4 text-sm font-semibold text-ink transition duration-200 hover:border-accent hover:text-accent-strong focus-visible:ring-2 focus-visible:ring-accent-strong";
@@ -79,7 +89,9 @@ function isSpeedUnit(value: string | null): value is SpeedUnit {
 }
 
 /** Lien « Modifier mes données » : effort restauré seulement si les trois paramètres sont valides. */
-function effortHref(searchParams: { get(name: string): string | null }): string {
+function effortHref(searchParams: {
+  get(name: string): string | null;
+}): string {
   const distanceKm = searchParams.get("km");
   const speed = searchParams.get("v");
   const unit = searchParams.get("u");
@@ -97,17 +109,6 @@ function effortHref(searchParams: { get(name: string): string | null }): string 
   return `/?${search.toString()}`;
 }
 
-/** Icône d'un solide selon son type. */
-function SolidIcon({ type }: { type: ProductType }) {
-  if (type === "Gel") {
-    return <GelIcon />;
-  }
-  if (type === "Pâte de fruit") {
-    return <FruitPasteIcon />;
-  }
-  return <CerealBarIcon />;
-}
-
 type CapGaugeProps = {
   testId: string;
   label: string;
@@ -119,12 +120,23 @@ type CapGaugeProps = {
 };
 
 /** Ligne de plafond : valeur en texte + jauge proportionnelle. */
-function CapGauge({ testId, label, text, used, cap, ratio, exceeded }: CapGaugeProps) {
+function CapGauge({
+  testId,
+  label,
+  text,
+  used,
+  cap,
+  ratio,
+  exceeded,
+}: CapGaugeProps) {
   const width = Math.min(ratio, 1) * 100;
 
   return (
     <div>
-      <p data-testid={testId} className={`text-sm font-medium ${exceeded ? "text-danger" : "text-ink"}`}>
+      <p
+        data-testid={testId}
+        className={`text-sm font-medium ${exceeded ? "text-danger" : "text-ink"}`}
+      >
         {text}
       </p>
       <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface-2">
@@ -165,7 +177,12 @@ function readDrink(settings: NutritionSettings): DrinkInput | null | undefined {
   const carbsPer100 = parseDecimal(settings.drinkCarbsPer100);
   const saltPer100 = parseDecimal(settings.drinkSaltPer100);
 
-  if (concentration === null || kcalPer100 === null || carbsPer100 === null || saltPer100 === null) {
+  if (
+    concentration === null ||
+    kcalPer100 === null ||
+    carbsPer100 === null ||
+    saltPer100 === null
+  ) {
     return undefined;
   }
   if (
@@ -218,10 +235,20 @@ function buildPlanState(rawMinutes: string | null): PlanState {
   const strategy =
     products.length === 0
       ? SINGLE_STRATEGY
-      : resolveStrategy(products.length === 3 ? 3 : products.length === 2 ? 2 : 1, settings.strategyKey);
+      : resolveStrategy(
+          products.length === 3 ? 3 : products.length === 2 ? 2 : 1,
+          settings.strategyKey,
+        );
   const shares = products.length === 0 ? [] : strategy.shares;
 
-  const plan = computeMultiProductPlan({ carbCap, sodiumCap, minutes, products, shares, drink });
+  const plan = computeMultiProductPlan({
+    carbCap,
+    sodiumCap,
+    minutes,
+    products,
+    shares,
+    drink,
+  });
   const timeline = buildMultiProductTimeline({
     minutes,
     carbCap,
@@ -232,7 +259,15 @@ function buildPlanState(rawMinutes: string | null): PlanState {
     drink: plan.drink,
   });
 
-  return { status: "ready", settings, minutes, products, strategy, plan, timeline };
+  return {
+    status: "ready",
+    settings,
+    minutes,
+    products,
+    strategy,
+    plan,
+    timeline,
+  };
 }
 
 export default function NutritionPlanView() {
@@ -257,7 +292,8 @@ export default function NutritionPlanView() {
           Données introuvables
         </h2>
         <p className="mb-4 text-sm text-muted">
-          Renseigne tes produits et la durée de l&apos;effort pour afficher ton plan.
+          Renseigne tes produits et la durée de l&apos;effort pour afficher ton
+          plan.
         </p>
         <Link href="/" className={LINK}>
           Revenir au formulaire
@@ -276,7 +312,10 @@ export default function NutritionPlanView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Link href={effortHref(searchParams)} className={`motion-safe:animate-rise ${LINK}`}>
+      <Link
+        href={effortHref(searchParams)}
+        className={`motion-safe:animate-rise ${LINK}`}
+      >
         Modifier mes données
       </Link>
 
@@ -304,7 +343,8 @@ export default function NutritionPlanView() {
             <div className="flex justify-between gap-3">
               <dt className="text-muted">Boisson</dt>
               <dd className="text-right text-ink">
-                {settings.drinkName} · Dosage {settings.drinkConcentration.replace(".", ",")} g/L
+                {settings.drinkName} · Dosage{" "}
+                {settings.drinkConcentration.replace(".", ",")} g/L
               </dd>
             </div>
           ) : null}
@@ -328,7 +368,9 @@ export default function NutritionPlanView() {
         <div data-testid="nutrition-results" className="space-y-4">
           <div className="grid grid-cols-2 gap-2">
             {products.map((product, index) => {
-              const item = plan.items.find((entry) => entry.productId === product.id);
+              const item = plan.items.find(
+                (entry) => entry.productId === product.id,
+              );
               const units = item?.units ?? 0;
               return (
                 <div
@@ -338,7 +380,7 @@ export default function NutritionPlanView() {
                   className={TILE}
                 >
                   <div className="flex items-center gap-1.5">
-                    <SolidIcon type={product.type} />
+                    <SolidIcon className="w-[20%]" type={product.type} />
                     <p className="text-xs text-muted">{productLabel(index)}</p>
                   </div>
                   <p className="mt-1 text-4xl font-bold leading-tight text-effort">
@@ -356,7 +398,7 @@ export default function NutritionPlanView() {
 
             <div data-testid="nutrition-result-liquid" className={TILE}>
               <div className="flex items-center gap-1.5">
-                <FlaskIcon />
+                <BottleIcon className="w-[12%]" />
                 <p className="text-xs text-muted">Liquide</p>
               </div>
               {plan.drink ? (
@@ -365,10 +407,14 @@ export default function NutritionPlanView() {
                     <span data-testid="nutrition-drink-volume">
                       {integer(plan.drink.volumeMl)}
                     </span>
-                    <span className="ml-1 text-base font-medium text-muted"> ml</span>
+                    <span className="ml-1 text-base font-medium text-muted">
+                      {" "}
+                      ml
+                    </span>
                   </p>
                   <p className="text-xs text-muted">
-                    {plan.drink.servings} prises · {decimal(plan.drink.powderG)} g de poudre
+                    {plan.drink.servings} prises · {decimal(plan.drink.powderG)}{" "}
+                    g de poudre
                   </p>
                 </>
               ) : (
@@ -379,7 +425,8 @@ export default function NutritionPlanView() {
 
           <div className="flex items-start justify-between gap-2">
             <p className="min-w-0 text-xs text-muted">
-              Facteur limitant : {plan.limitingFactor === "carbs" ? "glucides" : "sodium"}
+              Facteur limitant :{" "}
+              {plan.limitingFactor === "carbs" ? "glucides" : "sodium"}
             </p>
             <InfoTooltip
               id="help-limiting-factor"
@@ -394,17 +441,25 @@ export default function NutritionPlanView() {
             <div className={TILE}>
               <p className="text-xs text-effort">Glucides ingérés</p>
               <p className="text-lg font-semibold text-ink">
-                <span data-testid="nutrition-total-carbs">{decimal(plan.totals.carbsG)}</span> g
+                <span data-testid="nutrition-total-carbs">
+                  {decimal(plan.totals.carbsG)}
+                </span>{" "}
+                g
               </p>
               <p className="text-xs text-muted">
-                <span data-testid="nutrition-rate-carbs">{decimal(plan.rates.carbsGPerHour)}</span>{" "}
+                <span data-testid="nutrition-rate-carbs">
+                  {decimal(plan.rates.carbsGPerHour)}
+                </span>{" "}
                 g/h
               </p>
             </div>
             <div className={TILE}>
               <p className="text-xs text-effort">Sodium ingéré</p>
               <p className="text-lg font-semibold text-ink">
-                <span data-testid="nutrition-total-sodium">{integer(plan.totals.sodiumMg)}</span> mg
+                <span data-testid="nutrition-total-sodium">
+                  {integer(plan.totals.sodiumMg)}
+                </span>{" "}
+                mg
               </p>
               <p className="text-xs text-muted">
                 <span data-testid="nutrition-rate-sodium">
@@ -415,7 +470,9 @@ export default function NutritionPlanView() {
             </div>
           </div>
 
-          <p className="text-xs text-muted">Énergie ingérée : {integer(plan.totals.kcal)} kcal</p>
+          <p className="text-xs text-muted">
+            Énergie ingérée : {integer(plan.totals.kcal)} kcal
+          </p>
 
           {plan.warnings.map((warning) => (
             <p
@@ -430,7 +487,10 @@ export default function NutritionPlanView() {
         </div>
       </section>
 
-      <section className={`motion-safe:animate-rise ${CARD}`} aria-labelledby="titre-plafonds">
+      <section
+        className={`motion-safe:animate-rise ${CARD}`}
+        aria-labelledby="titre-plafonds"
+      >
         <h2 id="titre-plafonds" className={CARD_TITLE}>
           Plafonds
         </h2>
@@ -470,20 +530,30 @@ export default function NutritionPlanView() {
               exceeded={waterUsage.exceeded}
             />
             <p className="mt-1 text-xs text-muted">
-              Repère usuel : {HYDRATION_CAP_RECOMMENDED.min} à {HYDRATION_CAP_RECOMMENDED.max} ml/h
+              Repère usuel : {HYDRATION_CAP_RECOMMENDED.min} à{" "}
+              {HYDRATION_CAP_RECOMMENDED.max} ml/h
             </p>
           </div>
         </div>
       </section>
 
-      <section className={`motion-safe:animate-rise ${CARD}`} aria-labelledby="titre-timeline">
+      <section
+        className={`motion-safe:animate-rise ${CARD}`}
+        aria-labelledby="titre-timeline"
+      >
         <h2 id="titre-timeline" className={CARD_TITLE}>
           Timeline
         </h2>
-        <NutritionTimeline products={products} plan={plan} timeline={timeline} />
+        <NutritionTimeline
+          products={products}
+          plan={plan}
+          timeline={timeline}
+        />
       </section>
 
-      <p className="text-xs text-muted">Repères généraux, à adapter avec un professionnel de santé.</p>
+      <p className="text-xs text-muted">
+        Repères généraux, à adapter avec un professionnel de santé.
+      </p>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import InfoTooltip from "@/components/InfoTooltip";
-import { BottleIcon, CerealBarIcon } from "@/components/NutritionIcons";
+import { BottleIcon, SolidIcon } from "@/components/NutritionIcons";
 import { parseDecimal } from "@/lib/energy";
 import type { EffortFormValues } from "@/lib/effort";
 import { CAPS_HELP, STRATEGY_HELP } from "@/lib/helpTexts";
@@ -810,10 +810,7 @@ export default function NutritionPlanner({
                       onChange={() => handleToggleProduct(product.id)}
                       className="h-5 w-5 accent-accent"
                     />
-                    <CerealBarIcon />
-                    <span className="text-sm font-semibold text-ink">
-                      {product.name}
-                    </span>
+                    <SolidIcon className="w-[6%]" type={product.type} />
                     <span className={PILL}>{product.type}</span>
                     {selected ? (
                       <span className={PILL}>
@@ -1051,7 +1048,7 @@ export default function NutritionPlanner({
             <div className="mt-3 flex flex-col gap-3">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <BottleIcon />
+                  <BottleIcon className="w-[5%]" />
                   <span
                     data-testid="drink-summary-name"
                     className="text-sm font-semibold text-ink"

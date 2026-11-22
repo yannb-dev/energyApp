@@ -1,7 +1,7 @@
 import { parseDecimal } from "@/lib/energy";
 
 /** Types de solides proposés par l'application. */
-export const PRODUCT_TYPES = ["Gel", "Barre", "Pâte de fruit"] as const;
+export const PRODUCT_TYPES = ["Gel", "Barre", "Pate"] as const;
 export type ProductType = (typeof PRODUCT_TYPES)[number];
 
 export const TEXT_MAX_LENGTH = 50;
@@ -15,7 +15,8 @@ export const PRODUCT_WEIGHT_MAX = 500;
 
 /** Un effort se répartit sur trois solides au plus. */
 export const MAX_SELECTED_PRODUCTS = 3;
-export const MAX_SELECTED_MESSAGE = "Tu peux sélectionner 3 produits au maximum.";
+export const MAX_SELECTED_MESSAGE =
+  "Tu peux sélectionner 3 produits au maximum.";
 
 /** Un produit enregistré, valeurs numériques prêtes au calcul. */
 export type Product = {
@@ -53,7 +54,12 @@ export const EMPTY_PRODUCT_DRAFT: ProductDraft = {
   weight: "",
 };
 
-function rangeMessage(label: string, min: number, max: number, unit: string): string {
+function rangeMessage(
+  label: string,
+  min: number,
+  max: number,
+  unit: string,
+): string {
   return `${label} : la valeur doit être entre ${min} et ${max} ${unit}.`;
 }
 
@@ -94,14 +100,24 @@ export function validateProduct(draft: ProductDraft): ProductErrors {
   if (kcal === null) {
     errors.kcal = "L'énergie de l'unité est obligatoire.";
   } else if (kcal < PRODUCT_KCAL_MIN || kcal > PRODUCT_KCAL_MAX) {
-    errors.kcal = rangeMessage("L'énergie de l'unité", PRODUCT_KCAL_MIN, PRODUCT_KCAL_MAX, "kcal");
+    errors.kcal = rangeMessage(
+      "L'énergie de l'unité",
+      PRODUCT_KCAL_MIN,
+      PRODUCT_KCAL_MAX,
+      "kcal",
+    );
   }
 
   const weight = parseDecimal(draft.weight);
   if (weight === null) {
     errors.weight = "Le poids de l'unité est obligatoire.";
   } else if (weight < PRODUCT_WEIGHT_MIN || weight > PRODUCT_WEIGHT_MAX) {
-    errors.weight = rangeMessage("Le poids de l'unité", PRODUCT_WEIGHT_MIN, PRODUCT_WEIGHT_MAX, "g");
+    errors.weight = rangeMessage(
+      "Le poids de l'unité",
+      PRODUCT_WEIGHT_MIN,
+      PRODUCT_WEIGHT_MAX,
+      "g",
+    );
   }
 
   const carbs = parseDecimal(draft.carbs);
@@ -116,7 +132,12 @@ export function validateProduct(draft: ProductDraft): ProductErrors {
   if (salt === null) {
     errors.salt = "Le sel de l'unité est obligatoire.";
   } else if (salt < PRODUCT_SALT_MIN || salt > PRODUCT_SALT_MAX) {
-    errors.salt = rangeMessage("Le sel de l'unité", PRODUCT_SALT_MIN, PRODUCT_SALT_MAX, "g");
+    errors.salt = rangeMessage(
+      "Le sel de l'unité",
+      PRODUCT_SALT_MIN,
+      PRODUCT_SALT_MAX,
+      "g",
+    );
   }
 
   return errors;
@@ -132,8 +153,14 @@ export function createProductId(): string {
 }
 
 /** Convertit une saisie valide en produit ; null si la saisie contient une erreur. */
-export function draftToProduct(draft: ProductDraft, id: string): Product | null {
-  if (Object.keys(validateProduct(draft)).length > 0 || !isProductType(draft.type)) {
+export function draftToProduct(
+  draft: ProductDraft,
+  id: string,
+): Product | null {
+  if (
+    Object.keys(validateProduct(draft)).length > 0 ||
+    !isProductType(draft.type)
+  ) {
     return null;
   }
 
@@ -174,7 +201,10 @@ export function addProduct(products: Product[], product: Product): Product[] {
   return [...products, product];
 }
 
-export function updateProduct(products: Product[], product: Product): Product[] {
+export function updateProduct(
+  products: Product[],
+  product: Product,
+): Product[] {
   return products.map((item) => (item.id === product.id ? product : item));
 }
 
@@ -222,7 +252,10 @@ export function productLabel(index: number): string {
 }
 
 /** Produits sélectionnés, dans l'ordre des labels. */
-export function orderedSelected(products: Product[], selectedIds: string[]): Product[] {
+export function orderedSelected(
+  products: Product[],
+  selectedIds: string[],
+): Product[] {
   return selectedIds
     .map((id) => products.find((product) => product.id === id) ?? null)
     .filter((product): product is Product => product !== null);
