@@ -7,7 +7,7 @@ export default function Home() {
     <main className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-8">
       <header className="space-y-1">
         <div className="w-full flex justify-center items-center mb-12 mt-12">
-          <img className="w-[50%]" src="/title_logo.png" alt="titleLogo" />
+          <img className="w-[50%]" src="/Title_logo.png" alt="titleLogo" />
         </div>
 
         <h1 className="sr-only">Accueil</h1>

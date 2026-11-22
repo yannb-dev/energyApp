@@ -127,7 +127,7 @@ L'export doit permettre à l'utilisateur d'enregistrer une image format .jpeg ou
 - [x] Ajouter les png dans NutritionIcon
 - [x] Simplifier le fichier NutritionIcon.tsx (duplication)
 - [x] Getions des tailles directement depuis le composant qu'il l'utilise. Ajouter une props dynamique en className
-- [ ] Création d'un test pour NutritionIcon.tsx
+- [x] Création d'un test pour NutritionIcon.tsx
 
 > - Pour l'activité vélo ne proposer que les km/h (supprimer les mm:ss, attention aux tests)
 > - Pour l'activité ski de randonnée étudier la possiblité de calculer la durée de l'effort via la VMA et la Vitesse Ascensionnel
