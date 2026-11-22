@@ -294,7 +294,15 @@ function migrateProductType(value: unknown): ProductType | null {
   if (value === "Barre") {
     return "Barre";
   }
-  if (value === "Pâte de fruits") {
+  if (value === "Pate") {
+    return "Pate";
+  }
+  if (
+    value === "Compote" ||
+    value === "Autre" ||
+    value === "Pâte de fruits" ||
+    value === "Pâte de fruit"
+  ) {
     return "Pate";
   }
   return null;

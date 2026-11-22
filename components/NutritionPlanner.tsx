@@ -811,6 +811,9 @@ export default function NutritionPlanner({
                       className="h-5 w-5 accent-accent"
                     />
                     <SolidIcon className="w-[6%]" type={product.type} />
+                    <span className="text-sm font-medium text-ink">
+                      {product.name}
+                    </span>
                     <span className={PILL}>{product.type}</span>
                     {selected ? (
                       <span className={PILL}>

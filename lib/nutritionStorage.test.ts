@@ -177,7 +177,7 @@ describe("nutritionStorage", () => {
   });
 
   describe("migration v1 → v2 (exemple 13)", () => {
-    it("convertit le produit v1 en « Pâte de fruit » sélectionnée", () => {
+    it("convertit le produit v1 en « Pate » sélectionnée", () => {
       window.localStorage.setItem(NUTRITION_STORAGE_KEY_V1, JSON.stringify(V1_VALUES));
 
       const migrated = loadNutrition();
@@ -187,7 +187,7 @@ describe("nutritionStorage", () => {
       expect(migrated?.products[0]).toMatchObject({
         brand: "Materne",
         name: "Compote pomme",
-        type: "Pâte de fruit",
+        type: "Pate",
         kcal: 90,
         carbs: 18,
         salt: 0,
@@ -217,7 +217,7 @@ describe("nutritionStorage", () => {
       expect(window.localStorage.getItem(NUTRITION_STORAGE_KEY)).not.toBeNull();
     });
 
-    it("convertit aussi « Autre » et « Pâte de fruits » en « Pâte de fruit »", () => {
+    it("convertit aussi « Autre » et « Pâte de fruits » en « Pate »", () => {
       for (const ancien of ["Autre", "Pâte de fruits"]) {
         window.localStorage.clear();
         window.localStorage.setItem(
@@ -225,7 +225,7 @@ describe("nutritionStorage", () => {
           JSON.stringify({ ...V1_VALUES, productType: ancien }),
         );
 
-        expect(loadNutrition()?.products[0].type).toBe("Pâte de fruit");
+        expect(loadNutrition()?.products[0].type).toBe("Pate");
       }
     });
 
