@@ -53,7 +53,6 @@
 		{"id":"06be7db2f303692d","type":"text","text":"# VUE D'ENSEMBLE — learnIA (kcalapp)","x":1200,"y":-1100,"width":700,"height":130,"color":"1"},
 		{"id":"9ce575bbf2ca04e0","type":"text","text":"# Règles UI transverses\n- Mobile-first (320 / 390 / 768 px), cibles tactiles **≥ 44 px**, focus visible\n- Animations uniquement en `motion-safe:`\n- Couleurs via tokens du thème (`bg-canvas`, `bg-surface`, `text-ink`, `text-muted`, `accent`, `danger`) : aucun hex, `gray-*`, `bg-black/white`\n- Erreurs : `aria-invalid`, `aria-describedby`, `role=\"alert\"` ; ligne de statut `role=\"status\"` + `aria-live=\"polite\"`\n- Wording : information générale, pas de conseil médical\n- TypeScript strict, pas de `any`","x":5760,"y":2880,"width":700,"height":325,"color":"5"},
 		{"id":"36364c39989db889","type":"text","text":"# EnergyCalculator.tsx\n\n```tsx\n<>\n\n<EnergyCalculator\n\ninitialEffort={effort}\n\nonMinutesChange={setMinutes}\n\nonEffortChange={setEffort}\n\n/>\n\n<NutritionPlanner minutes={minutes} effort={effort} />\n\n</>\n```","x":-2320,"y":1293,"width":320,"height":504},
-		{"id":"fd22d9c82131cd14","type":"text","text":"# page.tsx\n\n## /nutrition\n\n```tsx\n<>\n<Suspense>\n\n<NutritionPlanView />\n\n</Suspense>\n```","x":-1720,"y":1900,"width":320,"height":337},
 		{"id":"2fc344c98df879c9","type":"text","text":"# HomeContent.tsx\n\n```tsx\n<>\n\n<EnergyCalculator\n\ninitialEffort={effort}\n\nonMinutesChange={setMinutes}\n\nonEffortChange={setEffort}\n\n/>\n\n<NutritionPlanner minutes={minutes} effort={effort} />\n\n</>\n```","x":-2000,"y":668,"width":320,"height":504},
 		{"id":"41c95c30e14d74f4","type":"text","text":"# page.tsx\n\n```tsx\n<Suspense>\n\n<HomeContent />\n\n</Suspense>\n```","x":-2000,"y":395,"width":320,"height":242},
 		{"id":"e10901a3f7550325","type":"text","text":"# layout.tsx","x":-2000,"y":300,"width":320,"height":50,"color":"#f1eaea"},
@@ -103,7 +102,8 @@
 		{"id":"8dc94631d2c274c8","type":"text","text":"# nutrition.ts","x":-2965,"y":3060,"width":280,"height":60,"color":"3"},
 		{"id":"f7b605cad951d4b9","type":"text","text":"# pacingBike.ts","x":-2965,"y":3150,"width":280,"height":60,"color":"3"},
 		{"id":"1118fde997a2b252","type":"text","text":"# pacingRun.ts","x":-2965,"y":3230,"width":280,"height":60,"color":"3"},
-		{"id":"fa808f366fe8dff3","type":"text","text":"# sport.ts","x":-2965,"y":3316,"width":280,"height":60,"color":"3"}
+		{"id":"fa808f366fe8dff3","type":"text","text":"# sport.ts","x":-2965,"y":3316,"width":280,"height":60,"color":"3"},
+		{"id":"fd22d9c82131cd14","type":"text","text":"# page.tsx\n\n## /nutrition\n\n```tsx\n<>\n<Suspense>\n\n<NutritionPlanView />\n\n</Suspense>\n```","x":-1500,"y":1924,"width":320,"height":337}
 	],
 	"edges":[
 		{"id":"2d1dd6eea7fb8502","fromNode":"38a88f2c517939cb","fromSide":"bottom","toNode":"7eb26f7b4586d1e0","toSide":"top"},

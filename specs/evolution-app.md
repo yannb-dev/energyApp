@@ -127,16 +127,11 @@ L'export doit permettre à l'utilisateur d'enregistrer une image format .jpeg ou
 - [x] Ajouter les png dans NutritionIcon
 - [x] Simplifier le fichier NutritionIcon.tsx (duplication)
 - [x] Getions des tailles directement depuis le composant qu'il l'utilise. Ajouter une props dynamique en className
-- [x] Création d'un test pour NutritionIcon.tsx
 
-> - Pour l'activité vélo ne proposer que les km/h (supprimer les mm:ss, attention aux tests)
-> - Pour l'activité ski de randonnée étudier la possiblité de calculer la durée de l'effort via la VMA et la Vitesse Ascensionnel
-> - Intégration du bloc "Plafonds à respecter" à déplacer dnas le bloc "Activité".
-> - Si calcul automatique retirer le button "Calculer" dans le bloc "Activité"
-> - Restructuration des blocs UI/UX
+> - Retirer le button "Calculer" dans le bloc "Activité", ne pas retirer "Reset"
 
-**Page 1** Paramétrage du sportif" fenêtre replié si données présente en local-storage puis deux blocs "Activité" (retirer le profil + tour 1km) et "Alimentation" _Aucun résultats dans ce bloc_
-**Page 2** Utilisation d'un infotool uniquement pour rappeler le rappel de l'activité et des produit utilisés pour l'activité. Puis un bloc "Résultats avec 3 sous-blocs "DEJ + Dépense activité" + "Récap produits" _Ajouter dette énergétique en face de ingéré_ _ajouter toutes les 15min sur la prise de boisson_ + "Timeline" _Intégration dans le profil du parcours_
+**Page 1** Paramétrage du sportif" fenêtre replié si données présente en local-storage puis deux blocs : "Activité" (si trace GPX retirer le profil altimétrique + tour 1km) et "Alimentation" _Aucun bloc "Résultats" dans ce bloc_ Intégration du bloc "Plafonds à respecter" à déplacer à la fin du bloc "Activité".
+**Page 2** Utilisation d'un infotool pour le "Rappel" de l'activité et des produit utilisés pour l'activité. Puis un bloc "Résultats avec 3 sous-blocs "DEJ + Dépense activité" + "Récap produits"+ "Profil altimétrique" + "Timeline"
 
 ### 8. Créer un feedBack des activités enregistrer afin d'adapter les différents calculs et répartition des produits ingérés.
 
