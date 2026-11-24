@@ -1,17 +1,21 @@
 import { parseDecimal } from "@/lib/energy";
+import { toFieldErrors } from "@/lib/schemas/errors";
+import { productDraftSchema } from "@/lib/schemas/product";
 
 /** Types de solides proposés par l'application. */
 export const PRODUCT_TYPES = ["Gel", "Barre", "Pate"] as const;
 export type ProductType = (typeof PRODUCT_TYPES)[number];
 
-export const TEXT_MAX_LENGTH = 50;
-
-export const PRODUCT_KCAL_MIN = 0;
-export const PRODUCT_KCAL_MAX = 1000;
-export const PRODUCT_SALT_MIN = 0;
-export const PRODUCT_SALT_MAX = 5;
-export const PRODUCT_WEIGHT_MIN = 1;
-export const PRODUCT_WEIGHT_MAX = 500;
+/** Bornes partagées avec les schémas de validation (lib/schemas/limits.ts). */
+export {
+  PRODUCT_KCAL_MAX,
+  PRODUCT_KCAL_MIN,
+  PRODUCT_SALT_MAX,
+  PRODUCT_SALT_MIN,
+  PRODUCT_WEIGHT_MAX,
+  PRODUCT_WEIGHT_MIN,
+  TEXT_MAX_LENGTH,
+} from "@/lib/schemas/limits";
 
 /** Un effort se répartit sur trois solides au plus. */
 export const MAX_SELECTED_PRODUCTS = 3;
@@ -54,93 +58,13 @@ export const EMPTY_PRODUCT_DRAFT: ProductDraft = {
   weight: "",
 };
 
-function rangeMessage(
-  label: string,
-  min: number,
-  max: number,
-  unit: string,
-): string {
-  return `${label} : la valeur doit être entre ${min} et ${max} ${unit}.`;
-}
-
-function textError(raw: string, label: string): string | null {
-  const trimmed = raw.trim();
-  if (trimmed === "") {
-    return `${label} est obligatoire.`;
-  }
-  if (trimmed.length > TEXT_MAX_LENGTH) {
-    return `${label} ne doit pas dépasser ${TEXT_MAX_LENGTH} caractères.`;
-  }
-  return null;
-}
-
 export function isProductType(value: string): value is ProductType {
   return (PRODUCT_TYPES as readonly string[]).includes(value);
 }
 
-/** Valide une saisie de produit, champ par champ. */
+/** Valide une saisie de produit ; les règles vivent dans lib/schemas/product.ts. */
 export function validateProduct(draft: ProductDraft): ProductErrors {
-  const errors: ProductErrors = {};
-
-  const brandError = textError(draft.brand, "La marque");
-  if (brandError) {
-    errors.brand = brandError;
-  }
-
-  const nameError = textError(draft.name, "Le nom du produit");
-  if (nameError) {
-    errors.name = nameError;
-  }
-
-  if (!isProductType(draft.type)) {
-    errors.type = "Choisis un type de produit.";
-  }
-
-  const kcal = parseDecimal(draft.kcal);
-  if (kcal === null) {
-    errors.kcal = "L'énergie de l'unité est obligatoire.";
-  } else if (kcal < PRODUCT_KCAL_MIN || kcal > PRODUCT_KCAL_MAX) {
-    errors.kcal = rangeMessage(
-      "L'énergie de l'unité",
-      PRODUCT_KCAL_MIN,
-      PRODUCT_KCAL_MAX,
-      "kcal",
-    );
-  }
-
-  const weight = parseDecimal(draft.weight);
-  if (weight === null) {
-    errors.weight = "Le poids de l'unité est obligatoire.";
-  } else if (weight < PRODUCT_WEIGHT_MIN || weight > PRODUCT_WEIGHT_MAX) {
-    errors.weight = rangeMessage(
-      "Le poids de l'unité",
-      PRODUCT_WEIGHT_MIN,
-      PRODUCT_WEIGHT_MAX,
-      "g",
-    );
-  }
-
-  const carbs = parseDecimal(draft.carbs);
-  if (carbs === null) {
-    errors.carbs = "Les glucides de l'unité sont obligatoires.";
-  } else if (carbs <= 0 || (weight !== null && carbs > weight)) {
-    errors.carbs =
-      "Les glucides de l'unité doivent être supérieurs à 0 et ne pas dépasser le poids de l'unité.";
-  }
-
-  const salt = parseDecimal(draft.salt);
-  if (salt === null) {
-    errors.salt = "Le sel de l'unité est obligatoire.";
-  } else if (salt < PRODUCT_SALT_MIN || salt > PRODUCT_SALT_MAX) {
-    errors.salt = rangeMessage(
-      "Le sel de l'unité",
-      PRODUCT_SALT_MIN,
-      PRODUCT_SALT_MAX,
-      "g",
-    );
-  }
-
-  return errors;
+  return toFieldErrors(productDraftSchema, draft);
 }
 
 /** Identifiant unique d'un produit ; jamais vide. */

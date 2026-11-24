@@ -34,6 +34,8 @@ import {
   saveNutrition,
   type NutritionSettings,
 } from "@/lib/nutritionStorage";
+import { toFieldErrors } from "@/lib/schemas/errors";
+import { capsSchema, drinkSchema } from "@/lib/schemas/nutrition";
 import {
   addProduct,
   createProductId,
@@ -307,85 +309,28 @@ export default function NutritionPlanner({
     saveNutrition(settings);
   }, [settings, shouldPersist]);
 
-  const capsErrors = useMemo(() => {
-    const errors: { carbCap?: string; sodiumCap?: string } = {};
+  const capsErrors = useMemo(
+    () =>
+      toFieldErrors(capsSchema, {
+        carbCap: settings.carbCap,
+        sodiumCap: settings.sodiumCap,
+      }),
+    [settings.carbCap, settings.sodiumCap],
+  );
 
-    const carbCap = parseDecimal(settings.carbCap);
-    if (carbCap === null) {
-      errors.carbCap = "Les glucides max sont obligatoires.";
-    } else if (carbCap < CARB_CAP_MIN || carbCap > CARB_CAP_MAX) {
-      errors.carbCap = `Les glucides max : la valeur doit être entre ${CARB_CAP_MIN} et ${CARB_CAP_MAX} g/h.`;
-    }
-
-    const sodiumCap = parseDecimal(settings.sodiumCap);
-    if (sodiumCap === null) {
-      errors.sodiumCap = "Le sodium max est obligatoire.";
-    } else if (sodiumCap < SODIUM_CAP_MIN || sodiumCap > SODIUM_CAP_MAX) {
-      errors.sodiumCap = `Le sodium max : la valeur doit être entre ${SODIUM_CAP_MIN} et ${SODIUM_CAP_MAX} mg/h.`;
-    }
-
-    return errors;
-  }, [settings.carbCap, settings.sodiumCap]);
-
-  const drinkErrors = useMemo(() => {
-    const errors: Partial<
-      Record<
-        | "drinkBrand"
-        | "drinkName"
-        | "drinkConcentration"
-        | "drinkKcalPer100"
-        | "drinkCarbsPer100"
-        | "drinkSaltPer100",
-        string
-      >
-    > = {};
-    if (!settings.drinkEnabled) {
-      return errors;
-    }
-
-    if (settings.drinkBrand.trim() === "") {
-      errors.drinkBrand = "La marque de la boisson est obligatoire.";
-    }
-    if (settings.drinkName.trim() === "") {
-      errors.drinkName = "Le nom de la boisson est obligatoire.";
-    }
-
-    const concentration = parseDecimal(settings.drinkConcentration);
-    if (concentration === null) {
-      errors.drinkConcentration = "La concentration est obligatoire.";
-    } else if (
-      concentration < DRINK_CONCENTRATION_MIN ||
-      concentration > DRINK_CONCENTRATION_MAX
-    ) {
-      errors.drinkConcentration = `La concentration : la valeur doit être entre ${DRINK_CONCENTRATION_MIN} et ${DRINK_CONCENTRATION_MAX} g/L.`;
-    }
-
-    const kcal = parseDecimal(settings.drinkKcalPer100);
-    if (kcal === null) {
-      errors.drinkKcalPer100 =
-        "L'énergie pour 100 g de poudre est obligatoire.";
-    } else if (kcal < DRINK_KCAL_MIN || kcal > DRINK_KCAL_MAX) {
-      errors.drinkKcalPer100 = `L'énergie pour 100 g de poudre : la valeur doit être entre ${DRINK_KCAL_MIN} et ${DRINK_KCAL_MAX} kcal.`;
-    }
-
-    const carbs = parseDecimal(settings.drinkCarbsPer100);
-    if (carbs === null) {
-      errors.drinkCarbsPer100 =
-        "Les glucides pour 100 g de poudre sont obligatoires.";
-    } else if (carbs <= 0 || carbs > DRINK_CARBS_MAX) {
-      errors.drinkCarbsPer100 =
-        "Les glucides pour 100 g de poudre doivent être supérieurs à 0 et au plus 100 g.";
-    }
-
-    const salt = parseDecimal(settings.drinkSaltPer100);
-    if (salt === null) {
-      errors.drinkSaltPer100 = "Le sel pour 100 g de poudre est obligatoire.";
-    } else if (salt < DRINK_SALT_MIN || salt > DRINK_SALT_MAX) {
-      errors.drinkSaltPer100 = `Le sel pour 100 g de poudre : la valeur doit être entre ${DRINK_SALT_MIN} et ${DRINK_SALT_MAX} g.`;
-    }
-
-    return errors;
-  }, [settings]);
+  const drinkErrors = useMemo(
+    () =>
+      toFieldErrors(drinkSchema, {
+        drinkEnabled: settings.drinkEnabled,
+        drinkBrand: settings.drinkBrand,
+        drinkName: settings.drinkName,
+        drinkConcentration: settings.drinkConcentration,
+        drinkKcalPer100: settings.drinkKcalPer100,
+        drinkCarbsPer100: settings.drinkCarbsPer100,
+        drinkSaltPer100: settings.drinkSaltPer100,
+      }),
+    [settings],
+  );
 
   const productErrors = useMemo(() => validateProduct(draft), [draft]);
 

@@ -1,15 +1,19 @@
-import { parseDecimal } from "@/lib/energy";
 import { BIKE_POSITIONS, type BikePositionId } from "@/lib/intensity";
+import { athleteSchema } from "@/lib/schemas/athlete";
+import { toFieldErrors } from "@/lib/schemas/errors";
 
 /** Clé des données athlète, séparée du profil « Paramètres » (SPEC-06). */
 export const ATHLETE_STORAGE_KEY = "kcalapp:athlete:v1";
 
-export const VMA_KMH_MIN = 8;
-export const VMA_KMH_MAX = 30;
-export const PMA_WATTS_MIN = 100;
-export const PMA_WATTS_MAX = 600;
-export const BIKE_KG_MIN = 5;
-export const BIKE_KG_MAX = 25;
+/** Bornes partagées avec les schémas de validation (lib/schemas/limits.ts). */
+export {
+  BIKE_KG_MAX,
+  BIKE_KG_MIN,
+  PMA_WATTS_MAX,
+  PMA_WATTS_MIN,
+  VMA_KMH_MAX,
+  VMA_KMH_MIN,
+} from "@/lib/schemas/limits";
 
 /** Valeurs brutes du formulaire athlète : tout arrive en texte depuis les champs. */
 export type AthleteSettings = {
@@ -37,36 +41,7 @@ export type AthleteField = "vmaKmh" | "pmaWatts" | "bikeKg";
 export function validateAthlete(
   values: AthleteSettings,
 ): Partial<Record<AthleteField, string>> {
-  const errors: Partial<Record<AthleteField, string>> = {};
-
-  if (values.vmaKmh.trim() !== "") {
-    const vma = parseDecimal(values.vmaKmh);
-    if (vma === null || vma < VMA_KMH_MIN || vma > VMA_KMH_MAX) {
-      errors.vmaKmh = `La VMA doit être entre ${VMA_KMH_MIN} et ${VMA_KMH_MAX} km/h.`;
-    }
-  }
-
-  if (values.pmaWatts.trim() !== "") {
-    const pma = parseDecimal(values.pmaWatts);
-    if (pma === null || !Number.isInteger(pma)) {
-      errors.pmaWatts = "La PMA doit être un nombre entier.";
-    } else if (pma < PMA_WATTS_MIN || pma > PMA_WATTS_MAX) {
-      errors.pmaWatts = `La PMA doit être entre ${PMA_WATTS_MIN} et ${PMA_WATTS_MAX} W.`;
-    }
-  }
-
-  if (values.hasBike) {
-    if (values.bikeKg.trim() === "") {
-      errors.bikeKg = "Le poids du vélo est obligatoire.";
-    } else {
-      const bikeKg = parseDecimal(values.bikeKg);
-      if (bikeKg === null || bikeKg < BIKE_KG_MIN || bikeKg > BIKE_KG_MAX) {
-        errors.bikeKg = `Le poids du vélo doit être entre ${BIKE_KG_MIN} et ${BIKE_KG_MAX} kg.`;
-      }
-    }
-  }
-
-  return errors;
+  return toFieldErrors(athleteSchema, values);
 }
 
 function getStorage(): Storage | null {
