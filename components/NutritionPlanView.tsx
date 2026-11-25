@@ -1,50 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 
 import { SolidIcon, BottleIcon } from "@/components/NutritionIcons";
 import InfoTooltip from "@/components/InfoTooltip";
 import NutritionTimeline from "@/components/NutritionTimeline";
+import { useActivity } from "@/components/providers/ActivityProvider";
+import { useUserSettings } from "@/components/providers/UserSettingsProvider";
 import { parseDecimal } from "@/lib/energy";
-import {
-  validateEffort,
-  type EffortFormValues,
-  type SpeedUnit,
-} from "@/lib/effort";
 import { LIMITING_FACTOR_HELP } from "@/lib/helpTexts";
 import {
   buildMultiProductTimeline,
-  CARB_CAP_MAX,
-  CARB_CAP_MIN,
   computeCapUsage,
   computeHydrationRate,
   computeMultiProductPlan,
-  DRINK_CARBS_MAX,
-  DRINK_CONCENTRATION_MAX,
-  DRINK_CONCENTRATION_MIN,
-  DRINK_KCAL_MAX,
-  DRINK_KCAL_MIN,
-  DRINK_SALT_MAX,
-  DRINK_SALT_MIN,
   HYDRATION_CAP_ML_PER_HOUR,
   HYDRATION_CAP_RECOMMENDED,
-  MINUTES_MAX,
-  MINUTES_MIN,
-  SODIUM_CAP_MAX,
-  SODIUM_CAP_MIN,
   type DrinkInput,
   type MultiProductPlan,
   type NutritionTimeline as TimelineData,
 } from "@/lib/nutrition";
-import { loadNutrition, type NutritionSettings } from "@/lib/nutritionStorage";
+import type { NutritionSettings } from "@/lib/nutritionStorage";
 import {
   orderedSelected,
   productLabel,
   type Product,
-  type ProductType,
 } from "@/lib/products";
+import { capsSchema, drinkSchema } from "@/lib/schemas/nutrition";
 import {
   resolveStrategy,
   SINGLE_STRATEGY,
@@ -67,46 +50,6 @@ function integer(value: number): string {
 /** Affichage : une décimale (g, g/h), virgule française. */
 function decimal(value: number): string {
   return value.toFixed(1).replace(".", ",");
-}
-
-/** `min` de l'URL : entier de 1 à 1440 minutes, sinon null. */
-function parseDuration(raw: string | null): number | null {
-  if (raw === null) {
-    return null;
-  }
-  const parsed = parseDecimal(raw);
-  if (parsed === null || !Number.isInteger(parsed)) {
-    return null;
-  }
-  if (parsed < MINUTES_MIN || parsed > MINUTES_MAX) {
-    return null;
-  }
-  return parsed;
-}
-
-function isSpeedUnit(value: string | null): value is SpeedUnit {
-  return value === "kmh" || value === "minkm";
-}
-
-/** Lien « Modifier mes données » : effort restauré seulement si les trois paramètres sont valides. */
-function effortHref(searchParams: {
-  get(name: string): string | null;
-}): string {
-  const distanceKm = searchParams.get("km");
-  const speed = searchParams.get("v");
-  const unit = searchParams.get("u");
-
-  if (distanceKm === null || speed === null || !isSpeedUnit(unit)) {
-    return "/";
-  }
-
-  const effort: EffortFormValues = { distanceKm, speed, speedUnit: unit };
-  if (Object.keys(validateEffort(effort)).length > 0) {
-    return "/";
-  }
-
-  const search = new URLSearchParams({ km: distanceKm, v: speed, u: unit });
-  return `/?${search.toString()}`;
 }
 
 type CapGaugeProps = {
@@ -167,68 +110,57 @@ type PlanState =
       timeline: TimelineData;
     };
 
-/** Lit une boisson valide depuis le stockage ; null dès qu'un champ est douteux. */
-function readDrink(settings: NutritionSettings): DrinkInput | null | undefined {
-  if (!settings.drinkEnabled) {
-    return null;
-  }
-  const concentration = parseDecimal(settings.drinkConcentration);
-  const kcalPer100 = parseDecimal(settings.drinkKcalPer100);
-  const carbsPer100 = parseDecimal(settings.drinkCarbsPer100);
-  const saltPer100 = parseDecimal(settings.drinkSaltPer100);
-
-  if (
-    concentration === null ||
-    kcalPer100 === null ||
-    carbsPer100 === null ||
-    saltPer100 === null
-  ) {
-    return undefined;
-  }
-  if (
-    concentration < DRINK_CONCENTRATION_MIN ||
-    concentration > DRINK_CONCENTRATION_MAX ||
-    kcalPer100 < DRINK_KCAL_MIN ||
-    kcalPer100 > DRINK_KCAL_MAX ||
-    carbsPer100 <= 0 ||
-    carbsPer100 > DRINK_CARBS_MAX ||
-    saltPer100 < DRINK_SALT_MIN ||
-    saltPer100 > DRINK_SALT_MAX
-  ) {
-    return undefined;
-  }
-
-  return { concentration, kcalPer100, carbsPer100, saltPer100 };
-}
-
 /** Assemble le plan complet ; « missing » si une donnée indispensable manque. */
-function buildPlanState(rawMinutes: string | null): PlanState {
-  const minutes = parseDuration(rawMinutes);
-  if (minutes === null) {
+function buildPlanState(
+  minutes: number | null,
+  settings: NutritionSettings | null,
+): PlanState {
+  if (minutes === null || settings === null) {
     return { status: "missing" };
   }
 
-  const settings = loadNutrition();
-  if (!settings) {
+  const caps = capsSchema.safeParse({
+    carbCap: settings.carbCap,
+    sodiumCap: settings.sodiumCap,
+  });
+  if (!caps.success) {
     return { status: "missing" };
   }
 
   const carbCap = parseDecimal(settings.carbCap);
   const sodiumCap = parseDecimal(settings.sodiumCap);
-  if (
-    carbCap === null ||
-    sodiumCap === null ||
-    carbCap < CARB_CAP_MIN ||
-    carbCap > CARB_CAP_MAX ||
-    sodiumCap < SODIUM_CAP_MIN ||
-    sodiumCap > SODIUM_CAP_MAX
-  ) {
+  if (carbCap === null || sodiumCap === null) {
     return { status: "missing" };
   }
 
-  const drink = readDrink(settings);
-  if (drink === undefined) {
+  const drinkCheck = drinkSchema.safeParse({
+    drinkEnabled: settings.drinkEnabled,
+    drinkBrand: settings.drinkBrand,
+    drinkName: settings.drinkName,
+    drinkConcentration: settings.drinkConcentration,
+    drinkKcalPer100: settings.drinkKcalPer100,
+    drinkCarbsPer100: settings.drinkCarbsPer100,
+    drinkSaltPer100: settings.drinkSaltPer100,
+  });
+  if (!drinkCheck.success) {
     return { status: "missing" };
+  }
+
+  let drink: DrinkInput | null = null;
+  if (settings.drinkEnabled) {
+    const concentration = parseDecimal(settings.drinkConcentration);
+    const kcalPer100 = parseDecimal(settings.drinkKcalPer100);
+    const carbsPer100 = parseDecimal(settings.drinkCarbsPer100);
+    const saltPer100 = parseDecimal(settings.drinkSaltPer100);
+    if (
+      concentration === null ||
+      kcalPer100 === null ||
+      carbsPer100 === null ||
+      saltPer100 === null
+    ) {
+      return { status: "missing" };
+    }
+    drink = { concentration, kcalPer100, carbsPer100, saltPer100 };
   }
 
   const products = orderedSelected(settings.products, settings.selectedIds);
@@ -271,15 +203,13 @@ function buildPlanState(rawMinutes: string | null): PlanState {
 }
 
 export default function NutritionPlanView() {
-  const searchParams = useSearchParams();
-  const rawMinutes = searchParams.get("min");
-  const [state, setState] = useState<PlanState | null>(null);
-
-  // Stockage et calcul lus après le montage : jamais pendant le rendu.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- SPEC-02.1 : lecture du stockage demandée dans un useEffect
-    setState(buildPlanState(rawMinutes));
-  }, [rawMinutes]);
+  const { status, nutrition } = useUserSettings();
+  const { minutes: activityMinutes } = useActivity();
+  const state = useMemo<PlanState | null>(
+    () =>
+      status === "ready" ? buildPlanState(activityMinutes, nutrition) : null,
+    [status, activityMinutes, nutrition],
+  );
 
   if (state === null) {
     return null;
@@ -313,7 +243,7 @@ export default function NutritionPlanView() {
   return (
     <div className="flex flex-col gap-4">
       <Link
-        href={effortHref(searchParams)}
+        href="/"
         className={`motion-safe:animate-rise ${LINK}`}
       >
         Modifier mes données

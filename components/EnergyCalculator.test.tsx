@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,24 +7,63 @@ import {
   ATHLETE_STORAGE_KEY,
   type AthleteSettings,
 } from "@/lib/athleteStorage";
+import type { ActivityState } from "@/lib/activity";
 import { PROFILE_STORAGE_KEY, type ProfileSettings } from "@/lib/profileStorage";
+import {
+  ActivityProbe,
+  renderWithProviders,
+} from "@/test/renderWithProviders";
 
 // Le mode GPX est couvert par GpxActivity.test.tsx : ici on ne vérifie que le câblage.
-vi.mock("@/components/GpxActivity", () => ({
-  __esModule: true,
-  GPX_EDIT_SETTINGS_EVENT: "kcalapp:edit-settings",
-  default: ({
-    onMinutesChange,
+vi.mock("@/components/GpxActivity", async () => {
+  const { useActivity } = await import(
+    "@/components/providers/ActivityProvider"
+  );
+
+  function GpxActivityMock({
+    onEditSettings,
   }: {
-    onMinutesChange: (minutes: string) => void;
-  }) => (
-    <button type="button" onClick={() => onMinutesChange("54")}>
-      Simuler la trace
-    </button>
-  ),
-}));
+    onEditSettings: () => void;
+  }) {
+    const { dispatch } = useActivity();
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() =>
+            dispatch({ type: "gpxMinutesChanged", minutes: 54 })
+          }
+        >
+          Simuler la trace
+        </button>
+        <button type="button" onClick={onEditSettings}>
+          Rouvrir les paramètres
+        </button>
+      </div>
+    );
+  }
+
+  return { __esModule: true, default: GpxActivityMock };
+});
 
 const user = () => userEvent.setup();
+
+/** Un champ vide n'affiche son erreur qu'après une tentative : le probe suit la durée publiée. */
+function renderCalculator(
+  options: { activity?: Partial<ActivityState> } = {},
+) {
+  return renderWithProviders(
+    <>
+      <EnergyCalculator />
+      <ActivityProbe />
+    </>,
+    options,
+  );
+}
+
+function minutesText(): string {
+  return screen.getByTestId("activity-minutes").textContent ?? "";
+}
 
 /** Profil enregistré de référence : femme, 35 ans, niveau « Modéré ». */
 const PROFILE: ProfileSettings = {
@@ -92,7 +131,7 @@ describe("EnergyCalculator", () => {
   });
 
   it("expose chaque champ avec un label", () => {
-    render(<EnergyCalculator />);
+    renderCalculator();
 
     expect(screen.getByLabelText("Homme")).toBeInTheDocument();
     expect(screen.getByLabelText("Femme")).toBeInTheDocument();
@@ -110,7 +149,7 @@ describe("EnergyCalculator", () => {
   });
 
   it("propose les 5 paliers d'activité et démarre sur Léger", () => {
-    render(<EnergyCalculator />);
+    renderCalculator();
 
     const slider = screen.getByLabelText("Niveau d'activité physique");
     expect(slider).toHaveAttribute("min", "0");
@@ -121,7 +160,7 @@ describe("EnergyCalculator", () => {
   });
 
   it("affiche BMR, TDEE, kcal de l'effort et pourcentage pour un profil valide", async () => {
-    render(<EnergyCalculator />);
+    renderCalculator();
     await fillValidProfile();
 
     expect(screen.getByTestId("bmr")).toHaveTextContent("1649");
@@ -131,7 +170,7 @@ describe("EnergyCalculator", () => {
   });
 
   it("affiche la mention d'estimation indicative non médicale", () => {
-    render(<EnergyCalculator />);
+    renderCalculator();
 
     expect(
       screen.getByText(/estimation indicative, non médicale/i),
@@ -139,7 +178,7 @@ describe("EnergyCalculator", () => {
   });
 
   it("change le TDEE quand on déplace le slider", async () => {
-    render(<EnergyCalculator />);
+    renderCalculator();
     await fillValidProfile();
 
     const slider = screen.getByLabelText("Niveau d'activité physique");
@@ -160,7 +199,7 @@ describe("EnergyCalculator", () => {
   });
 
   it("met à jour les kcal de l'effort quand on change de sport ou de distance", async () => {
-    render(<EnergyCalculator />);
+    renderCalculator();
     const u = await fillValidProfile();
 
     expect(screen.getByTestId("effort-kcal")).toHaveTextContent("484");
@@ -175,7 +214,7 @@ describe("EnergyCalculator", () => {
   });
 
   it("affiche une erreur par champ vide et aucun résultat", async () => {
-    render(<EnergyCalculator />);
+    renderCalculator();
 
     await user().click(screen.getByRole("button", { name: "Calculer" }));
 
@@ -190,7 +229,7 @@ describe("EnergyCalculator", () => {
   });
 
   it("affiche une erreur et aucun résultat pour des valeurs hors bornes", async () => {
-    render(<EnergyCalculator />);
+    renderCalculator();
     const u = await fillValidProfile();
 
     expect(screen.getByTestId("results")).toBeInTheDocument();
@@ -229,7 +268,7 @@ describe("EnergyCalculator", () => {
   });
 
   it("affiche les erreurs de distance, de format et de durée calculée", async () => {
-    render(<EnergyCalculator />);
+    renderCalculator();
     const u = await fillValidProfile();
 
     const distance = screen.getByLabelText("Distance (km)");
@@ -269,7 +308,7 @@ describe("EnergyCalculator", () => {
   });
 
   it("signale l'erreur de distance et d'erreur-vitesse avec les bons ids", async () => {
-    render(<EnergyCalculator />);
+    renderCalculator();
     const u = await fillValidProfile();
 
     const pace = screen.getByLabelText("Allure (min/km)");
@@ -294,7 +333,7 @@ describe("EnergyCalculator", () => {
   });
 
   it("choisit l'unité selon le sport quand la vitesse est vide", async () => {
-    render(<EnergyCalculator />);
+    renderCalculator();
     const u = user();
 
     await u.selectOptions(screen.getByLabelText("Sport"), "course-modere");
@@ -313,7 +352,7 @@ describe("EnergyCalculator", () => {
   });
 
   it("conserve l'unité et la valeur saisies quand le sport change", async () => {
-    render(<EnergyCalculator />);
+    renderCalculator();
     const u = user();
 
     await u.selectOptions(
@@ -332,7 +371,7 @@ describe("EnergyCalculator", () => {
   });
 
   it("convertit la valeur saisie lors d'une bascule d'unité", async () => {
-    render(<EnergyCalculator />);
+    renderCalculator();
     const u = user();
 
     await fillProfile(u);
@@ -357,8 +396,7 @@ describe("EnergyCalculator", () => {
   });
 
   it("affiche la ligne de durée seulement quand elle est calculable", async () => {
-    const onMinutesChange = vi.fn();
-    render(<EnergyCalculator onMinutesChange={onMinutesChange} />);
+    renderCalculator();
     const u = user();
 
     expect(screen.queryByTestId("effort-duration")).not.toBeInTheDocument();
@@ -369,16 +407,16 @@ describe("EnergyCalculator", () => {
     const status = screen.getByTestId("effort-duration");
     expect(status).toHaveTextContent("50 min");
     expect(status).toHaveAttribute("aria-live", "polite");
-    expect(onMinutesChange).toHaveBeenLastCalledWith("50");
+    expect(minutesText()).toBe("50");
 
     await u.clear(screen.getByLabelText("Distance (km)"));
 
     expect(screen.queryByTestId("effort-duration")).not.toBeInTheDocument();
-    expect(onMinutesChange).toHaveBeenLastCalledWith("");
+    expect(minutesText()).toBe("");
   });
 
   it("propose une aide « ? » sur le métabolisme de base et la dépense journalière", async () => {
-    render(<EnergyCalculator />);
+    renderCalculator();
     const u = await fillValidProfile();
 
     const bmr = screen.getByRole("button", { name: "Aide : métabolisme de base" });
@@ -406,32 +444,30 @@ describe("EnergyCalculator", () => {
     );
   });
 
-  it("préremplit l'effort et notifie chaque changement puis le Reset", async () => {
-    const onMinutesChange = vi.fn();
-    render(
-      <EnergyCalculator
-        initialEffort={{ distanceKm: "10", speed: "12", speedUnit: "kmh" }}
-        onMinutesChange={onMinutesChange}
-      />,
-    );
+  it("préremplit l'effort et publie chaque changement puis le Reset", async () => {
+    renderCalculator({
+      activity: {
+        effort: { distanceKm: "10", speed: "12", speedUnit: "kmh" },
+      },
+    });
     const u = user();
 
     expect(screen.getByLabelText("Distance (km)")).toHaveValue("10");
     expect(screen.getByLabelText("Vitesse (km/h)")).toHaveValue("12");
     expect(screen.getByTestId("effort-duration")).toHaveTextContent("50 min");
-    expect(onMinutesChange).toHaveBeenLastCalledWith("50");
+    expect(minutesText()).toBe("50");
 
     await u.clear(screen.getByLabelText("Distance (km)"));
     await u.type(screen.getByLabelText("Distance (km)"), "20");
-    expect(onMinutesChange).toHaveBeenLastCalledWith("100");
+    expect(minutesText()).toBe("100");
 
     await u.click(screen.getByRole("button", { name: "Reset" }));
-    expect(onMinutesChange).toHaveBeenLastCalledWith("");
+    expect(minutesText()).toBe("");
   });
 
   describe("profil « Paramètres »", () => {
     it("démarre en édition quand aucun profil n'est enregistré (exemple 7)", () => {
-      render(<EnergyCalculator />);
+      renderCalculator();
 
       expect(validateButton()).toBeInTheDocument();
       expect(
@@ -441,7 +477,7 @@ describe("EnergyCalculator", () => {
     });
 
     it("affiche les erreurs et n'enregistre rien pour un profil vide (exemple 8)", async () => {
-      render(<EnergyCalculator />);
+      renderCalculator();
 
       await user().click(validateButton());
 
@@ -455,7 +491,7 @@ describe("EnergyCalculator", () => {
     });
 
     it("enregistre le profil et replie le bloc (exemple 9)", async () => {
-      render(<EnergyCalculator />);
+      renderCalculator();
       const u = user();
 
       await fillProfile(u);
@@ -475,7 +511,7 @@ describe("EnergyCalculator", () => {
 
     it("replie le bloc et calcule avec un profil enregistré (exemple 10)", async () => {
       storeProfile();
-      render(<EnergyCalculator />);
+      renderCalculator();
       const u = user();
 
       expect(screen.queryByLabelText("Âge (ans)")).not.toBeInTheDocument();
@@ -492,7 +528,7 @@ describe("EnergyCalculator", () => {
 
     it("réaffiche les valeurs enregistrées et place le focus en tête (exemple 11)", async () => {
       storeProfile();
-      render(<EnergyCalculator />);
+      renderCalculator();
 
       await user().click(editButton());
 
@@ -507,7 +543,7 @@ describe("EnergyCalculator", () => {
 
     it("met à jour le profil à la seconde validation (exemple 12)", async () => {
       storeProfile();
-      render(<EnergyCalculator />);
+      renderCalculator();
       const u = user();
 
       await u.click(editButton());
@@ -521,7 +557,7 @@ describe("EnergyCalculator", () => {
     });
 
     it("valide malgré un sport ou un effort manquants (exemple 13)", async () => {
-      render(<EnergyCalculator />);
+      renderCalculator();
       const u = user();
 
       await fillProfile(u);
@@ -535,7 +571,7 @@ describe("EnergyCalculator", () => {
     });
 
     it("calcule sans avoir validé le profil (exemple 14)", async () => {
-      render(<EnergyCalculator />);
+      renderCalculator();
       await fillValidProfile();
 
       expect(screen.getByTestId("results")).toBeInTheDocument();
@@ -543,7 +579,7 @@ describe("EnergyCalculator", () => {
     });
 
     it("« Valider » n'envoie pas le formulaire (exemple 16)", async () => {
-      render(<EnergyCalculator />);
+      renderCalculator();
       const u = user();
 
       await fillProfile(u);
@@ -559,8 +595,7 @@ describe("EnergyCalculator", () => {
     });
 
     it("Reset vide sport, distance et vitesse mais garde le profil (exemple 15)", async () => {
-      const onMinutesChange = vi.fn();
-      render(<EnergyCalculator onMinutesChange={onMinutesChange} />);
+      renderCalculator();
       const u = await fillValidProfile();
       await u.click(validateButton());
 
@@ -576,13 +611,13 @@ describe("EnergyCalculator", () => {
       expect(editButton()).toBeInTheDocument();
       expect(window.localStorage.getItem(PROFILE_STORAGE_KEY)).toBe(saved);
       expect(screen.getByLabelText("Sport")).toHaveFocus();
-      expect(onMinutesChange).toHaveBeenLastCalledWith("");
+      expect(minutesText()).toBe("");
     });
   });
 
   describe("athlète « Paramètres »", () => {
     it("affiche les champs du vélo seulement quand il est coché (exemple 7)", async () => {
-      render(<EnergyCalculator />);
+      renderCalculator();
       const u = user();
 
       expect(
@@ -605,7 +640,7 @@ describe("EnergyCalculator", () => {
     });
 
     it("bloque l'enregistrement pour une VMA hors bornes (exemple 8)", async () => {
-      render(<EnergyCalculator />);
+      renderCalculator();
       const u = user();
 
       await fillProfile(u);
@@ -624,7 +659,7 @@ describe("EnergyCalculator", () => {
     });
 
     it("enregistre profil et données athlète puis replie le bloc (exemple 9)", async () => {
-      render(<EnergyCalculator />);
+      renderCalculator();
       const u = user();
 
       await fillProfile(u);
@@ -648,7 +683,7 @@ describe("EnergyCalculator", () => {
     it("préremplit VMA, PMA et vélo au rechargement (exemple 10)", async () => {
       storeProfile();
       storeAthlete({ ...ATHLETE, bikePosition: "aero" });
-      render(<EnergyCalculator />);
+      renderCalculator();
 
       expect(screen.queryByLabelText("VMA (km/h)")).not.toBeInTheDocument();
 
@@ -663,7 +698,7 @@ describe("EnergyCalculator", () => {
 
     it("replie le bloc avec un profil seul et laisse l'athlète vide (exemple 11)", async () => {
       storeProfile();
-      render(<EnergyCalculator />);
+      renderCalculator();
 
       expect(editButton()).toHaveAttribute("aria-expanded", "false");
 
@@ -673,26 +708,11 @@ describe("EnergyCalculator", () => {
       expect(screen.getByLabelText("PMA (W)")).toHaveValue("");
       expect(screen.getByLabelText("Ajouter un vélo")).not.toBeChecked();
     });
-
-    it("appelle onAthleteChange avec le poids du profil (exemple 12)", async () => {
-      const onAthleteChange = vi.fn();
-      render(<EnergyCalculator onAthleteChange={onAthleteChange} />);
-      const u = user();
-
-      await fillProfile(u);
-      await u.type(screen.getByLabelText("VMA (km/h)"), "16");
-      await u.click(validateButton());
-
-      expect(onAthleteChange).toHaveBeenLastCalledWith(
-        expect.objectContaining({ vmaKmh: "16" }),
-        "70",
-      );
-    });
   });
 
   describe("mode GPX (SPEC-07.5)", () => {
     it("n'affiche le sélecteur de mode que pour les sports GPX (exemple 12)", async () => {
-      render(<EnergyCalculator />);
+      renderCalculator();
       const u = user();
 
       expect(
@@ -716,8 +736,7 @@ describe("EnergyCalculator", () => {
     });
 
     it("repasse en saisie manuelle quand le sport ne supporte plus le GPX (exemple 12)", async () => {
-      const onMinutesChange = vi.fn();
-      render(<EnergyCalculator onMinutesChange={onMinutesChange} />);
+      renderCalculator();
       const u = user();
 
       await u.selectOptions(screen.getByLabelText("Sport"), "course-modere");
@@ -729,7 +748,7 @@ describe("EnergyCalculator", () => {
       expect(screen.queryByLabelText("Distance (km)")).not.toBeInTheDocument();
 
       await u.click(screen.getByRole("button", { name: "Simuler la trace" }));
-      expect(onMinutesChange).toHaveBeenLastCalledWith("54");
+      expect(minutesText()).toBe("54");
 
       await u.selectOptions(screen.getByLabelText("Sport"), "randonnee-modere");
 
@@ -737,12 +756,11 @@ describe("EnergyCalculator", () => {
       expect(
         screen.queryByRole("button", { name: "Simuler la trace" }),
       ).not.toBeInTheDocument();
-      expect(onMinutesChange).not.toHaveBeenLastCalledWith("54");
-      expect(onMinutesChange).toHaveBeenLastCalledWith("");
+      expect(minutesText()).toBe("");
     });
 
     it("conserve les champs manuels quand on change de mode (exemple 12)", async () => {
-      render(<EnergyCalculator />);
+      renderCalculator();
       const u = user();
 
       await u.selectOptions(screen.getByLabelText("Sport"), "course-modere");
@@ -755,7 +773,7 @@ describe("EnergyCalculator", () => {
     });
 
     it("la saisie manuelle calcule exactement comme avant (exemple 13)", async () => {
-      render(<EnergyCalculator />);
+      renderCalculator();
       await fillValidProfile();
 
       expect(screen.getByTestId("effort-kcal")).toHaveTextContent("484");

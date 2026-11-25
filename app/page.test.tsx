@@ -1,16 +1,16 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import Home from "@/app/page";
+import { renderWithProviders } from "@/test/renderWithProviders";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
 }));
 
 describe("page d'accueil", () => {
   it("n'affiche plus le titre « Gestion alimentaire sportive » (exemple 1)", () => {
-    render(<Home />);
+    renderWithProviders(<Home />);
 
     expect(
       screen.queryByRole("heading", {
@@ -24,7 +24,7 @@ describe("page d'accueil", () => {
   });
 
   it("garde un h1 neutre masqué et le paragraphe de présentation (exemple 2)", () => {
-    render(<Home />);
+    renderWithProviders(<Home />);
 
     const heading = screen.getByRole("heading", { level: 1 });
     expect(heading).toHaveClass("sr-only");
@@ -35,7 +35,7 @@ describe("page d'accueil", () => {
   });
 
   it("affiche le calculateur de dépense énergétique", () => {
-    render(<Home />);
+    renderWithProviders(<Home />);
 
     expect(screen.getByLabelText("Âge (ans)")).toBeInTheDocument();
     expect(

@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-
 import NutritionPlanView from "@/components/NutritionPlanView";
 
 export default function NutritionPage() {
@@ -13,9 +11,7 @@ export default function NutritionPage() {
           Unités solides, boisson et progression des apports pendant l&apos;effort.
         </p>
       </header>
-      <Suspense>
-        <NutritionPlanView />
-      </Suspense>
+      <NutritionPlanView />
     </main>
   );
 }

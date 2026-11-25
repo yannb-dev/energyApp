@@ -1,21 +1,16 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import NutritionPlanView from "@/components/NutritionPlanView";
+import type { EffortFormValues } from "@/lib/effort";
 import type { Product } from "@/lib/products";
 import { NUTRITION_STORAGE_KEY, type NutritionSettings } from "@/lib/nutritionStorage";
-
-const navigation = vi.hoisted(() => ({ search: new URLSearchParams() }));
+import { renderWithProviders } from "@/test/renderWithProviders";
 
 /** Force le débit d'eau pour éprouver le dépassement du plafond hydrique. */
 const water = vi.hoisted(() => ({ override: null as number | null }));
-
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
-  useSearchParams: () => navigation.search,
-}));
 
 vi.mock("next/link", () => ({
   default: ({ href, children, className }: { href: string; children: ReactNode; className?: string }) => (
@@ -35,6 +30,20 @@ vi.mock("@/lib/nutrition", async (importOriginal) => {
     ) => water.override ?? actual.computeHydrationRate(plan, minutes),
   };
 });
+
+/** Effort de référence : 24 km à 12 km/h, soit 120 min. */
+const EFFORT_120: EffortFormValues = {
+  distanceKm: "24",
+  speed: "12",
+  speedUnit: "kmh",
+};
+
+/** Même allure sur 12 km : 60 min. */
+const EFFORT_60: EffortFormValues = {
+  distanceKm: "12",
+  speed: "12",
+  speedUnit: "kmh",
+};
 
 const BARRE: Product = {
   id: "barre",
@@ -80,17 +89,22 @@ function store(overrides: Partial<NutritionSettings> = {}) {
   );
 }
 
+function renderPlan(effort: EffortFormValues = EFFORT_120) {
+  return renderWithProviders(<NutritionPlanView />, {
+    activity: { effort },
+  });
+}
+
 describe("NutritionPlanView", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    navigation.search = new URLSearchParams("min=120");
     water.override = null;
   });
 
   it("affiche le rappel, une tuile par produit, les totaux et la timeline", async () => {
     store();
 
-    render(<NutritionPlanView />);
+    renderPlan();
 
     expect(await screen.findByTestId("nutrition-results")).toBeInTheDocument();
 
@@ -125,37 +139,10 @@ describe("NutritionPlanView", () => {
     );
   });
 
-  it("restaure l'effort dans le lien retour quand l'URL le contient (exemple 19)", async () => {
-    navigation.search = new URLSearchParams("min=50&km=10&v=5:00&u=minkm");
+  it("« Modifier mes données » pointe vers l'accueil (exemple 19)", async () => {
     store();
 
-    render(<NutritionPlanView />);
-
-    await screen.findByTestId("nutrition-results");
-    expect(screen.getByRole("link", { name: "Modifier mes données" })).toHaveAttribute(
-      "href",
-      "/?km=10&v=5%3A00&u=minkm",
-    );
-  });
-
-  it("revient à l'accueil sans effort quand les paramètres sont invalides", async () => {
-    navigation.search = new URLSearchParams("min=120&km=10&v=5:00&u=xx");
-    store();
-
-    render(<NutritionPlanView />);
-
-    await screen.findByTestId("nutrition-results");
-    expect(screen.getByRole("link", { name: "Modifier mes données" })).toHaveAttribute(
-      "href",
-      "/",
-    );
-  });
-
-  it("revient à l'accueil sans effort quand la distance est invalide", async () => {
-    navigation.search = new URLSearchParams("min=120&km=abc&v=5:00&u=minkm");
-    store();
-
-    render(<NutritionPlanView />);
+    renderPlan();
 
     await screen.findByTestId("nutrition-results");
     expect(screen.getByRole("link", { name: "Modifier mes données" })).toHaveAttribute(
@@ -167,7 +154,7 @@ describe("NutritionPlanView", () => {
   it("déduit la boisson du budget et la présente dans une tuile (exemple 6)", async () => {
     store({ drinkEnabled: true });
 
-    render(<NutritionPlanView />);
+    renderPlan();
 
     const tiles = await screen.findAllByTestId("nutrition-product-result");
     expect(within(tiles[0]).getByTestId("nutrition-units")).toHaveTextContent("1");
@@ -185,7 +172,7 @@ describe("NutritionPlanView", () => {
   it("calcule uniquement avec la boisson sans solide (exemple 15)", async () => {
     store({ selectedIds: [], products: [], drinkEnabled: true });
 
-    render(<NutritionPlanView />);
+    renderPlan();
 
     expect(await screen.findByTestId("nutrition-result-liquid")).toHaveTextContent("Liquide");
 
@@ -198,7 +185,7 @@ describe("NutritionPlanView", () => {
   it("affiche « Aucune boisson » et une jauge d'eau vide sans boisson", async () => {
     store();
 
-    render(<NutritionPlanView />);
+    renderPlan();
 
     const liquid = await screen.findByTestId("nutrition-result-liquid");
     expect(liquid).toHaveTextContent("Aucune boisson");
@@ -207,7 +194,6 @@ describe("NutritionPlanView", () => {
   });
 
   it("passe les plafonds en danger quand ils sont dépassés", async () => {
-    navigation.search = new URLSearchParams("min=60");
     store({
       products: [BARRE],
       selectedIds: ["barre"],
@@ -217,7 +203,7 @@ describe("NutritionPlanView", () => {
       drinkSaltPer100: "0",
     });
 
-    render(<NutritionPlanView />);
+    renderPlan(EFFORT_60);
 
     const carbs = await screen.findByTestId("nutrition-cap-carbs");
     expect(carbs).toHaveTextContent("Glucides : 81,0 / 60 g/h");
@@ -232,7 +218,7 @@ describe("NutritionPlanView", () => {
     water.override = 900;
     store({ drinkEnabled: true });
 
-    render(<NutritionPlanView />);
+    renderPlan();
 
     const gauge = await screen.findByTestId("nutrition-cap-water");
     expect(gauge).toHaveTextContent("Eau : 900 ml/h");
@@ -240,7 +226,7 @@ describe("NutritionPlanView", () => {
   });
 
   it("affiche « Données introuvables » sans stockage", async () => {
-    render(<NutritionPlanView />);
+    renderPlan();
 
     expect(await screen.findByText("Données introuvables")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Revenir au formulaire" })).toHaveAttribute(
@@ -249,11 +235,22 @@ describe("NutritionPlanView", () => {
     );
   });
 
-  it("affiche « Données introuvables » pour une durée invalide", async () => {
-    navigation.search = new URLSearchParams("min=zéro");
+  it("affiche « Données introuvables » sans activité, même avec une nutrition valide (exemple 14)", async () => {
     store();
 
-    render(<NutritionPlanView />);
+    renderWithProviders(<NutritionPlanView />);
+
+    expect(await screen.findByText("Données introuvables")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Revenir au formulaire" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+  });
+
+  it("affiche « Données introuvables » pour une boisson incomplète (exemple 15)", async () => {
+    store({ drinkEnabled: true, drinkConcentration: "" });
+
+    renderPlan();
 
     expect(await screen.findByText("Données introuvables")).toBeInTheDocument();
   });
@@ -261,7 +258,7 @@ describe("NutritionPlanView", () => {
   it("propose une aide « ? » à côté du facteur limitant", async () => {
     store();
 
-    render(<NutritionPlanView />);
+    renderPlan();
 
     const help = await screen.findByRole("button", { name: "Aide : facteur limitant" });
 

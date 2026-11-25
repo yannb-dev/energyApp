@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import InfoTooltip from "@/components/InfoTooltip";
 import { BottleIcon, SolidIcon } from "@/components/NutritionIcons";
-import { parseDecimal } from "@/lib/energy";
-import type { EffortFormValues } from "@/lib/effort";
+import { useActivity } from "@/components/providers/ActivityProvider";
+import { useUserSettings } from "@/components/providers/UserSettingsProvider";
 import { CAPS_HELP, STRATEGY_HELP } from "@/lib/helpTexts";
 import {
   CARB_CAP_DEFAULT_G_PER_HOUR,
@@ -20,18 +20,13 @@ import {
   DRINK_KCAL_MIN,
   DRINK_SALT_MAX,
   DRINK_SALT_MIN,
-  MINUTES_MAX,
-  MINUTES_MIN,
   SODIUM_CAP_DEFAULT_MG_PER_HOUR,
   SODIUM_CAP_MAX,
   SODIUM_CAP_MIN,
   SODIUM_CAP_RECOMMENDED,
 } from "@/lib/nutrition";
 import {
-  clearNutrition,
   EMPTY_NUTRITION_SETTINGS,
-  loadNutrition,
-  saveNutrition,
   type NutritionSettings,
 } from "@/lib/nutritionStorage";
 import { toFieldErrors } from "@/lib/schemas/errors";
@@ -105,18 +100,7 @@ function frenchNumber(value: number): string {
   return String(value).replace(".", ",");
 }
 
-/** Durée venant du bloc Activité : entier de 1 à 1440 minutes, sinon null. */
-function parseDuration(raw: string): number | null {
-  const parsed = parseDecimal(raw);
-  if (parsed === null || !Number.isInteger(parsed)) {
-    return null;
-  }
-  if (parsed < MINUTES_MIN || parsed > MINUTES_MAX) {
-    return null;
-  }
-  return parsed;
-}
-
+/** Durée venant du bloc Activité, en minutes ; null si elle n'est pas calculable. */
 function toProductType(raw: string): ProductType | "" {
   return (PRODUCT_TYPES as readonly string[]).includes(raw)
     ? (raw as ProductType)
@@ -259,55 +243,29 @@ function Chevron({ direction }: { direction: "up" | "down" }) {
   );
 }
 
-type NutritionPlannerProps = {
-  /** Durée de l'effort lue dans le bloc Activité ; seule source de la durée. */
-  minutes: string;
-  /** Effort saisi dans le bloc Activité, transmis au plan pour le lien retour. */
-  effort: EffortFormValues;
-};
-
-export default function NutritionPlanner({
-  minutes,
-  effort,
-}: NutritionPlannerProps) {
+export default function NutritionPlanner() {
   const router = useRouter();
-  const [settings, setSettings] = useState<NutritionSettings>(emptySettings);
-  const [shouldPersist, setShouldPersist] = useState(false);
+  const { nutrition, updateNutrition, resetNutrition } = useUserSettings();
+  const { minutes } = useActivity();
+  const settings = nutrition ?? emptySettings();
 
   // Formulaire produit : ouvert pour un ajout, prérempli pour une modification.
   const [draft, setDraft] = useState<ProductDraft>(EMPTY_PRODUCT_DRAFT);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formOpen, setFormOpen] = useState(true);
+  const [formOpen, setFormOpen] = useState(
+    () => (nutrition?.products.length ?? 0) === 0,
+  );
 
   // État d'affichage de la boisson : jamais persisté.
-  const [openDrink, setOpenDrink] = useState(true);
+  const [openDrink, setOpenDrink] = useState(
+    () => !(nutrition?.drinkEnabled ?? false),
+  );
 
   // Les erreurs n'apparaissent qu'après une tentative sur le bloc concerné.
   const [capsAttempted, setCapsAttempted] = useState(false);
   const [productAttempted, setProductAttempted] = useState(false);
   const [drinkAttempted, setDrinkAttempted] = useState(false);
   const [durationAttempted, setDurationAttempted] = useState(false);
-
-  // Lecture du stockage après le montage : jamais pendant le rendu.
-  useEffect(() => {
-    const stored = loadNutrition();
-    if (!stored) {
-      return;
-    }
-    /* eslint-disable react-hooks/set-state-in-effect -- SPEC-02.1 : hydratation demandée dans un useEffect, pas pendant le rendu */
-    setSettings(stored);
-    setFormOpen(stored.products.length === 0);
-    setOpenDrink(!stored.drinkEnabled);
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, []);
-
-  // Écriture à chaque changement, sauf juste après une réinitialisation.
-  useEffect(() => {
-    if (!shouldPersist) {
-      return;
-    }
-    saveNutrition(settings);
-  }, [settings, shouldPersist]);
 
   const capsErrors = useMemo(
     () =>
@@ -334,7 +292,7 @@ export default function NutritionPlanner({
 
   const productErrors = useMemo(() => validateProduct(draft), [draft]);
 
-  const duration = parseDuration(minutes);
+  const duration = minutes;
   const selectedCount = settings.selectedIds.length;
   const strategies =
     selectedCount >= 2 ? getStrategies(selectedCount === 3 ? 3 : 2) : [];
@@ -347,8 +305,7 @@ export default function NutritionPlanner({
   );
 
   function persist(next: NutritionSettings) {
-    setShouldPersist(true);
-    setSettings(next);
+    updateNutrition(next);
   }
 
   function patchSettings(part: Partial<NutritionSettings>) {
@@ -501,18 +458,10 @@ export default function NutritionPlanner({
       return;
     }
 
-    const search = new URLSearchParams({
-      min: String(duration),
-      km: effort.distanceKm,
-      v: effort.speed,
-      u: effort.speedUnit,
-    });
-    router.push(`/nutrition?${search.toString()}`);
+    router.push("/nutrition");
   }
 
   function handleReset() {
-    setShouldPersist(false);
-    setSettings(emptySettings());
     setDraft(EMPTY_PRODUCT_DRAFT);
     setEditingId(null);
     setFormOpen(true);
@@ -521,7 +470,7 @@ export default function NutritionPlanner({
     setProductAttempted(false);
     setDrinkAttempted(false);
     setDurationAttempted(false);
-    clearNutrition();
+    resetNutrition();
   }
 
   return (

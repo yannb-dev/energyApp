@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-
 import HomeContent from "@/components/HomeContent";
 
 export default function Home() {
@@ -16,9 +14,7 @@ export default function Home() {
           l&apos;alimentation pendant l&apos;effort.
         </p>
       </header>
-      <Suspense>
-        <HomeContent />
-      </Suspense>
+      <HomeContent />
     </main>
   );
 }

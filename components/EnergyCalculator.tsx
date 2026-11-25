@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import InfoTooltip from "@/components/InfoTooltip";
-import GpxActivity, {
-  GPX_EDIT_SETTINGS_EVENT,
-} from "@/components/GpxActivity";
+import GpxActivity from "@/components/GpxActivity";
+import { useActivity } from "@/components/providers/ActivityProvider";
+import { useUserSettings } from "@/components/providers/UserSettingsProvider";
+import type { InputMode } from "@/lib/activity";
 import {
   ACTIVITY_LEVELS,
   AGE_MAX,
@@ -23,24 +24,19 @@ import {
 import {
   computeEffortDuration,
   convertSpeed,
-  EMPTY_EFFORT,
   formatDuration,
   formatPace,
   validateEffort,
-  type EffortFormValues,
   type SpeedUnit,
 } from "@/lib/effort";
 import {
   EMPTY_ATHLETE,
-  loadAthlete,
-  saveAthlete,
   validateAthlete,
   type AthleteField,
   type AthleteSettings,
 } from "@/lib/athleteStorage";
 import { BMR_HELP, PMA_HELP, TDEE_HELP, VMA_HELP } from "@/lib/helpTexts";
 import { BIKE_POSITIONS } from "@/lib/intensity";
-import { loadProfile, saveProfile } from "@/lib/profileStorage";
 import { findSport, SPORTS, supportsGpx } from "@/lib/sports";
 
 const EMPTY_VALUES: EnergyFormValues = {
@@ -75,36 +71,34 @@ function speedLabelKmh(speedKmh: number): string {
   return String(Math.round(speedKmh * 10) / 10).replace(".", ",");
 }
 
-type EnergyCalculatorProps = {
-  /** Effort relu par la page (distance, vitesse ou allure, unité). */
-  initialEffort?: EffortFormValues;
-  /** Appelée avec la durée dérivée, ou une chaîne vide si elle n'est pas calculable. */
-  onMinutesChange?: (minutes: string) => void;
-  /** Appelée à chaque changement d'effort pour que la page puisse le transmettre. */
-  onEffortChange?: (effort: EffortFormValues) => void;
-  /** Appelée avec les données athlète valides et le poids du profil. */
-  onAthleteChange?: (athlete: AthleteSettings, weightKg: string) => void;
-};
-
-export default function EnergyCalculator({
-  initialEffort,
-  onMinutesChange,
-  onEffortChange,
-  onAthleteChange,
-}: EnergyCalculatorProps = {}) {
-  const [values, setValues] = useState<EnergyFormValues>(EMPTY_VALUES);
-  const [effort, setEffort] = useState<EffortFormValues>(
-    () => initialEffort ?? EMPTY_EFFORT,
+export default function EnergyCalculator() {
+  const {
+    profile: storedProfile,
+    athlete: storedAthlete,
+    updateProfile,
+    updateAthlete,
+  } = useUserSettings();
+  const { activity, minutes, dispatch } = useActivity();
+  const [values, setValues] = useState<EnergyFormValues>(() =>
+    storedProfile
+      ? {
+          ...EMPTY_VALUES,
+          sex: storedProfile.sex,
+          age: storedProfile.age,
+          weightKg: storedProfile.weightKg,
+          heightCm: storedProfile.heightCm,
+        }
+      : EMPTY_VALUES,
   );
-  const [athlete, setAthlete] = useState<AthleteSettings>(EMPTY_ATHLETE);
-  /** Mode du bloc Activité : saisie manuelle (SPEC-05) ou trace GPX (SPEC-07.5). */
-  const [inputMode, setInputMode] = useState<"manual" | "gpx">("manual");
-  /** Durée remontée par GpxActivity : seule source de la durée en mode GPX. */
-  const [gpxMinutes, setGpxMinutes] = useState("");
-  const [activityIndex, setActivityIndex] = useState(DEFAULT_ACTIVITY_INDEX);
+  const [athlete, setAthlete] = useState<AthleteSettings>(
+    () => storedAthlete ?? EMPTY_ATHLETE,
+  );
+  const [activityIndex, setActivityIndex] = useState(
+    () => storedProfile?.activityIndex ?? DEFAULT_ACTIVITY_INDEX,
+  );
   const [submitted, setSubmitted] = useState(false);
   /** Bloc « Paramètres » : true = édition, false = replié après validation. */
-  const [profileOpen, setProfileOpen] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(() => storedProfile === null);
   /** Une tentative de validation du profil affiche les erreurs des champs vides. */
   const [profileAttempted, setProfileAttempted] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
@@ -119,68 +113,28 @@ export default function EnergyCalculator({
   /** Focus à poser après un changement d'état du bloc (l'élément n'existe pas encore). */
   const pendingFocusRef = useRef<"modify" | "firstField" | null>(null);
 
-  const activity = ACTIVITY_LEVELS[activityIndex];
-  const sport = findSport(values.sportId);
+  const activityLevel = ACTIVITY_LEVELS[activityIndex];
+  const sport = findSport(activity.sportId);
   const gpxAvailable = sport !== undefined && supportsGpx(sport);
-  const isPace = effort.speedUnit === "minkm";
+  const isPace = activity.effort.speedUnit === "minkm";
 
-  const errors = useMemo(() => validateInputs(values), [values]);
+  const errors = useMemo(
+    () => validateInputs({ ...values, sportId: activity.sportId }),
+    [values, activity.sportId],
+  );
   const hasErrors = Object.keys(errors).length > 0;
 
-  const effortErrors = useMemo(() => validateEffort(effort), [effort]);
-  const effortHasErrors = Object.keys(effortErrors).length > 0;
+  const effortErrors = useMemo(
+    () => validateEffort(activity.effort),
+    [activity.effort],
+  );
 
   const athleteErrors = useMemo(() => validateAthlete(athlete), [athlete]);
-  const athleteHasErrors = Object.keys(athleteErrors).length > 0;
 
   const effortDuration = useMemo(
-    () => computeEffortDuration(effort),
-    [effort],
+    () => computeEffortDuration(activity.effort),
+    [activity.effort],
   );
-  const derivedMinutes = effortDuration ? String(effortDuration.minutes) : "";
-  /** Durée lue par la page : mode GPX ou saisie manuelle, jamais les deux. */
-  const effectiveMinutes =
-    inputMode === "gpx" && gpxAvailable ? gpxMinutes : derivedMinutes;
-
-  // La page a besoin de la durée dérivée pour la nutrition et l'URL.
-  useEffect(() => {
-    onMinutesChange?.(effectiveMinutes);
-  }, [effectiveMinutes, onMinutesChange]);
-
-  useEffect(() => {
-    onEffortChange?.(effort);
-  }, [effort, onEffortChange]);
-
-  // Lecture du profil et des données athlète après le montage : jamais pendant le rendu.
-  useEffect(() => {
-    const storedProfile = loadProfile();
-    const storedAthlete = loadAthlete();
-    /* eslint-disable react-hooks/set-state-in-effect -- SPEC-06 et SPEC-07.2 : hydratation demandée dans un useEffect, pas pendant le rendu */
-    if (storedAthlete) {
-      setAthlete(storedAthlete);
-    }
-    if (!storedProfile) {
-      return;
-    }
-    setValues((current) => ({
-      ...current,
-      sex: storedProfile.sex,
-      age: storedProfile.age,
-      weightKg: storedProfile.weightKg,
-      heightCm: storedProfile.heightCm,
-    }));
-    setActivityIndex(storedProfile.activityIndex);
-    setProfileOpen(false);
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, []);
-
-  // Les modèles de 07.3 et 07.4 ont besoin de la VMA, de la PMA et du poids du cycliste.
-  useEffect(() => {
-    if (!onAthleteChange || athleteHasErrors) {
-      return;
-    }
-    onAthleteChange(athlete, values.weightKg);
-  }, [onAthleteChange, athlete, athleteHasErrors, values.weightKg]);
 
   // Focus différé : la cible vient d'apparaître (bloc replié ou rouvert).
   useEffect(() => {
@@ -195,55 +149,32 @@ export default function EnergyCalculator({
     }
   }, [profileOpen]);
 
-  // « Modifier mes paramètres » du mode GPX : rouvre le bloc ou cible la VMA.
-  useEffect(() => {
-    function handleOpenSettings() {
-      if (profileOpen) {
-        vmaFieldRef.current?.focus();
-        return;
-      }
-      pendingFocusRef.current = "firstField";
-      setProfileOpen(true);
+  /** « Modifier mes paramètres » du mode GPX : rouvre le bloc ou cible la VMA. */
+  function handleOpenSettings() {
+    if (profileOpen) {
+      vmaFieldRef.current?.focus();
+      return;
     }
-
-    window.addEventListener(GPX_EDIT_SETTINGS_EVENT, handleOpenSettings);
-    return () =>
-      window.removeEventListener(GPX_EDIT_SETTINGS_EVENT, handleOpenSettings);
-  }, [profileOpen]);
+    pendingFocusRef.current = "firstField";
+    setProfileOpen(true);
+  }
 
   const results = useMemo(() => {
-    if (hasErrors || !sport) {
-      return null;
-    }
-    // En mode GPX, la distance et la vitesse manuelles ne sont pas requises.
-    if (inputMode === "gpx" && gpxAvailable) {
-      if (gpxMinutes === "") {
-        return null;
-      }
-      return computeEnergyResults(
-        { ...values, minutes: gpxMinutes },
-        activity.coefficient,
-        sport.met,
-      );
-    }
-    if (effortHasErrors) {
+    if (hasErrors || !sport || minutes === null) {
       return null;
     }
     return computeEnergyResults(
-      { ...values, minutes: derivedMinutes },
-      activity.coefficient,
+      { ...values, sportId: activity.sportId, minutes: String(minutes) },
+      activityLevel.coefficient,
       sport.met,
     );
   }, [
     values,
-    derivedMinutes,
-    gpxMinutes,
-    inputMode,
-    gpxAvailable,
+    activity.sportId,
+    minutes,
     hasErrors,
-    effortHasErrors,
     sport,
-    activity.coefficient,
+    activityLevel.coefficient,
   ]);
 
   /** Un champ vide n'affiche son erreur qu'après une tentative de calcul ou de validation. */
@@ -267,7 +198,7 @@ export default function EnergyCalculator({
     if (!message) {
       return null;
     }
-    if (!submitted && effort[field].trim() === "") {
+    if (!submitted && activity.effort[field].trim() === "") {
       return null;
     }
     return message;
@@ -324,14 +255,14 @@ export default function EnergyCalculator({
       return;
     }
 
-    saveProfile({
+    updateProfile({
       sex: values.sex,
       age: values.age,
       weightKg: values.weightKg,
       heightCm: values.heightCm,
       activityIndex,
     });
-    saveAthlete({
+    updateAthlete({
       ...athlete,
       bikeKg: athlete.hasBike ? athlete.bikeKg : "",
     });
@@ -371,53 +302,33 @@ export default function EnergyCalculator({
 
   /** Reset : sport, distance et vitesse seulement — le profil et l'état replié sont conservés. */
   function handleReset() {
-    setValues((current) => ({ ...current, sportId: "" }));
-    setEffort(EMPTY_EFFORT);
-    setInputMode("manual");
-    setGpxMinutes("");
+    dispatch({ type: "reset" });
     setSubmitted(false);
     sportRef.current?.focus();
-    onMinutesChange?.("");
   }
 
   /** Le sport ne change l'unité que si la vitesse est encore vide. */
   function handleSport(nextSportId: string) {
-    setValues((current) => ({ ...current, sportId: nextSportId }));
-
-    const nextSport = findSport(nextSportId);
-    if (!nextSport) {
-      return;
-    }
-    // Sport sans GPX : retour en saisie manuelle, aucune durée de trace conservée.
-    if (!supportsGpx(nextSport)) {
-      setInputMode("manual");
-      setGpxMinutes("");
-    }
-    setEffort((current) =>
-      current.speed.trim() === ""
-        ? { ...current, speedUnit: nextSport.defaultSpeedUnit }
-        : current,
-    );
+    dispatch({ type: "sportChanged", sportId: nextSportId });
   }
 
   /** Bascule manuel / GPX : les champs manuels ne sont jamais vidés. */
-  function handleInputMode(mode: "manual" | "gpx") {
-    setInputMode(mode);
-    if (mode === "manual") {
-      setGpxMinutes("");
-    }
+  function handleInputMode(mode: InputMode) {
+    dispatch({ type: "inputModeChanged", mode });
   }
 
   function handleUnitChange(unit: SpeedUnit) {
-    setEffort((current) =>
-      current.speedUnit === unit
-        ? current
-        : {
-            ...current,
-            speedUnit: unit,
-            speed: convertSpeed(current.speed, current.speedUnit, unit),
-          },
-    );
+    if (activity.effort.speedUnit === unit) {
+      return;
+    }
+    dispatch({
+      type: "effortChanged",
+      effort: {
+        ...activity.effort,
+        speedUnit: unit,
+        speed: convertSpeed(activity.effort.speed, activity.effort.speedUnit, unit),
+      },
+    });
   }
 
   const sexError = errorFor("sex");
@@ -604,7 +515,7 @@ export default function EnergyCalculator({
               step={1}
               value={activityIndex}
               onChange={(event) => setActivityIndex(Number(event.target.value))}
-              aria-valuetext={activity.label}
+              aria-valuetext={activityLevel.label}
               className="h-11 w-full cursor-pointer accent-accent focus-visible:ring-2 focus-visible:ring-accent-strong"
             />
             <div className="flex justify-between gap-1 text-xs text-muted">
@@ -613,7 +524,7 @@ export default function EnergyCalculator({
                   key={level.label}
                   data-testid="activity-level"
                   className={
-                    level.label === activity.label
+                    level.label === activityLevel.label
                       ? "font-semibold text-ink"
                       : "text-muted"
                   }
@@ -627,10 +538,10 @@ export default function EnergyCalculator({
                 data-testid="activity-label"
                 className="font-semibold text-accent"
               >
-                {activity.label}
+                {activityLevel.label}
               </span>{" "}
               <span data-testid="activity-label-detail" className=" text-muted">
-                {activity.detail}
+                {activityLevel.detail}
               </span>
             </p>
           </div>
@@ -819,7 +730,7 @@ export default function EnergyCalculator({
               <select
                 ref={sportRef}
                 id="sport"
-                value={values.sportId}
+                value={activity.sportId}
                 onChange={(event) => handleSport(event.target.value)}
                 aria-invalid={sportError ? true : undefined}
                 aria-describedby={sportError ? "erreur-sport" : undefined}
@@ -868,7 +779,7 @@ export default function EnergyCalculator({
                     type="radio"
                     name="mode-saisie"
                     value="manual"
-                    checked={inputMode === "manual"}
+                    checked={activity.inputMode === "manual"}
                     onChange={() => handleInputMode("manual")}
                     className="peer sr-only"
                   />
@@ -882,7 +793,7 @@ export default function EnergyCalculator({
                     type="radio"
                     name="mode-saisie"
                     value="gpx"
-                    checked={inputMode === "gpx"}
+                    checked={activity.inputMode === "gpx"}
                     onChange={() => handleInputMode("gpx")}
                     className="peer sr-only"
                   />
@@ -894,12 +805,12 @@ export default function EnergyCalculator({
             </div>
           ) : null}
 
-          {inputMode === "gpx" && sport && gpxAvailable ? (
+          {activity.inputMode === "gpx" && sport && gpxAvailable ? (
             <GpxActivity
               sport={sport}
               profile={{ weightKg: values.weightKg }}
               athlete={athlete}
-              onMinutesChange={setGpxMinutes}
+              onEditSettings={handleOpenSettings}
             />
           ) : (
             <>
@@ -911,12 +822,15 @@ export default function EnergyCalculator({
                   id="distance"
                   type="text"
                   inputMode="decimal"
-                  value={effort.distanceKm}
+                  value={activity.effort.distanceKm}
                   onChange={(event) =>
-                    setEffort((current) => ({
-                      ...current,
-                      distanceKm: event.target.value,
-                    }))
+                    dispatch({
+                      type: "effortChanged",
+                      effort: {
+                        ...activity.effort,
+                        distanceKm: event.target.value,
+                      },
+                    })
                   }
                   aria-invalid={distanceError ? true : undefined}
                   aria-describedby={
@@ -944,7 +858,7 @@ export default function EnergyCalculator({
                       type="radio"
                       name="unite"
                       value="kmh"
-                      checked={effort.speedUnit === "kmh"}
+                      checked={activity.effort.speedUnit === "kmh"}
                       onChange={() => handleUnitChange("kmh")}
                       className="peer sr-only"
                     />
@@ -958,7 +872,7 @@ export default function EnergyCalculator({
                       type="radio"
                       name="unite"
                       value="minkm"
-                      checked={effort.speedUnit === "minkm"}
+                      checked={activity.effort.speedUnit === "minkm"}
                       onChange={() => handleUnitChange("minkm")}
                       className="peer sr-only"
                     />
@@ -978,12 +892,15 @@ export default function EnergyCalculator({
                   type="text"
                   inputMode={isPace ? "numeric" : "decimal"}
                   placeholder={isPace ? "5:30" : undefined}
-                  value={effort.speed}
+                  value={activity.effort.speed}
                   onChange={(event) =>
-                    setEffort((current) => ({
-                      ...current,
-                      speed: event.target.value,
-                    }))
+                    dispatch({
+                      type: "effortChanged",
+                      effort: {
+                        ...activity.effort,
+                        speed: event.target.value,
+                      },
+                    })
                   }
                   aria-invalid={speedError ? true : undefined}
                   aria-describedby={

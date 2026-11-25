@@ -17,6 +17,7 @@ import {
 import ElevationProfile from "@/components/ElevationProfile";
 import InfoTooltip from "@/components/InfoTooltip";
 import SplitsTable from "@/components/SplitsTable";
+import { useActivity } from "@/components/providers/ActivityProvider";
 import {
   BIKE_KG_MAX,
   BIKE_KG_MIN,
@@ -32,22 +33,17 @@ import {
   DISTANCE_KM_MIN,
   formatDuration,
 } from "@/lib/effort";
-import { buildTrack, parseGpx, type GpxError, type Track } from "@/lib/gpx";
+import { buildTrack, parseGpx, type GpxError } from "@/lib/gpx";
 import { INTENSITY_HELP, PACING_METHOD_HELP } from "@/lib/helpTexts";
 import {
   BIKE_POSITIONS,
   INTENSITY_LEVELS,
   TERRAIN_TYPES,
-  type IntensityId,
-  type TerrainId,
 } from "@/lib/intensity";
 import { MINUTES_MAX, MINUTES_MIN } from "@/lib/nutrition";
 import { computeBikePacing, DEFAULT_BIKE_KG } from "@/lib/pacingBike";
 import { computeRunPacing, type PacingResult } from "@/lib/pacingRun";
 import type { Sport } from "@/lib/sports";
-
-/** Événement demandé par « Modifier mes paramètres » : le bloc Paramètres se rouvre. */
-export const GPX_EDIT_SETTINGS_EVENT = "kcalapp:edit-settings";
 
 const FIELD_LABEL = "mb-1 block text-sm font-medium text-ink";
 const CHIP =
@@ -96,20 +92,21 @@ type GpxActivityProps = {
   /** Poids du profil « Paramètres » (SPEC-06), en texte. */
   profile: { weightKg: string };
   athlete: AthleteSettings;
-  /** Durée dérivée, ou chaîne vide quand le résultat n'est pas calculable. */
-  onMinutesChange: (minutes: string) => void;
+  /** Demande au parent de rouvrir le bloc Paramètres (ou de cibler la VMA). */
+  onEditSettings: () => void;
 };
 
 export default function GpxActivity({
   sport,
   profile,
   athlete,
-  onMinutesChange,
+  onEditSettings,
 }: GpxActivityProps) {
-  const [track, setTrack] = useState<Track | null>(null);
+  const { activity, dispatch } = useActivity();
+  const track = activity.track;
+  const intensity = activity.intensity;
+  const terrain = activity.terrain;
   const [fileError, setFileError] = useState<string | null>(null);
-  const [intensity, setIntensity] = useState<IntensityId>("moderate");
-  const [terrain, setTerrain] = useState<TerrainId>("rolling");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   /** Message de données manquantes déjà affiché : le focus ne revient qu'une fois. */
@@ -210,17 +207,13 @@ export default function GpxActivity({
     defaultPosition.cdA,
   ]);
 
-  // Liaison nutrition : durée dès qu'un résultat valide existe, sinon chaîne vide.
+  // Liaison nutrition : durée publiée au contexte dès qu'un résultat valide existe.
   useEffect(() => {
-    onMinutesChange(
-      outcome.kind === "ready" ? String(outcome.result.minutes) : "",
-    );
-  }, [outcome, onMinutesChange]);
-
-  // Sortie du mode GPX : la durée de la trace ne doit pas survivre au composant.
-  useEffect(() => {
-    return () => onMinutesChange("");
-  }, [onMinutesChange]);
+    dispatch({
+      type: "gpxMinutesChanged",
+      minutes: outcome.kind === "ready" ? outcome.result.minutes : null,
+    });
+  }, [outcome, dispatch]);
 
   const needsSettings =
     outcome.kind === "error" && outcome.settingsAction && track !== null;
@@ -243,40 +236,36 @@ export default function GpxActivity({
     try {
       text = await file.text();
     } catch {
-      setTrack(null);
+      dispatch({ type: "trackChanged", track: null });
       setFileError(GPX_ERROR_MESSAGES["invalid-xml"]);
       return;
     }
 
     const parsed = parseGpx(text);
     if (!parsed.ok) {
-      setTrack(null);
+      dispatch({ type: "trackChanged", track: null });
       setFileError(GPX_ERROR_MESSAGES[parsed.error]);
       return;
     }
 
     const nextTrack = buildTrack(parsed.points);
     if (nextTrack.distanceKm <= 0) {
-      setTrack(null);
+      dispatch({ type: "trackChanged", track: null });
       setFileError(GPX_ERROR_MESSAGES["too-few-points"]);
       return;
     }
 
     setFileError(null);
-    setTrack(nextTrack);
+    dispatch({ type: "trackChanged", track: nextTrack });
   }
 
   /** Retire la trace et la valeur du champ fichier ; aucune copie conservée. */
   function handleRemoveTrack() {
-    setTrack(null);
+    dispatch({ type: "trackChanged", track: null });
     setFileError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-  }
-
-  function handleEditSettings() {
-    window.dispatchEvent(new Event(GPX_EDIT_SETTINGS_EVENT));
   }
 
   return (
@@ -336,7 +325,9 @@ export default function GpxActivity({
                 name="gpx-intensite"
                 value={level.id}
                 checked={intensity === level.id}
-                onChange={() => setIntensity(level.id)}
+                onChange={() =>
+                  dispatch({ type: "intensityChanged", intensity: level.id })
+                }
                 className="peer sr-only"
               />
               <label htmlFor={`gpx-intensite-${level.id}`} className={CHIP}>
@@ -361,7 +352,9 @@ export default function GpxActivity({
                   name="gpx-terrain"
                   value={type.id}
                   checked={terrain === type.id}
-                  onChange={() => setTerrain(type.id)}
+                  onChange={() =>
+                    dispatch({ type: "terrainChanged", terrain: type.id })
+                  }
                   className="peer sr-only"
                 />
                 <label htmlFor={`gpx-terrain-${type.id}`} className={CHIP}>
@@ -386,7 +379,7 @@ export default function GpxActivity({
             <button
               ref={settingsButtonRef}
               type="button"
-              onClick={handleEditSettings}
+              onClick={onEditSettings}
               className="flex h-11 w-full items-center justify-center rounded-xl border border-line px-4 text-sm font-semibold text-ink transition duration-200 hover:border-accent hover:text-accent-strong focus-visible:ring-2 focus-visible:ring-accent-strong"
             >
               Modifier mes paramètres

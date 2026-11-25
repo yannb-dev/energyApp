@@ -1,10 +1,14 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import GpxActivity from "@/components/GpxActivity";
 import type { AthleteSettings } from "@/lib/athleteStorage";
 import { findSport } from "@/lib/sports";
+import {
+  ActivityProbe,
+  renderWithProviders,
+} from "@/test/renderWithProviders";
 
 const RUN = findSport("course-modere")!;
 const TRAIL = findSport("trail-modere")!;
@@ -56,19 +60,20 @@ type RenderOptions = {
 };
 
 function renderGpx(options: RenderOptions = {}) {
-  const onMinutesChange = vi.fn();
   const { sport = RUN, athlete = {}, weightKg = "70" } = options;
 
-  render(
-    <GpxActivity
-      sport={sport}
-      profile={{ weightKg }}
-      athlete={{ ...ATHLETE, ...athlete }}
-      onMinutesChange={onMinutesChange}
-    />,
+  renderWithProviders(
+    <>
+      <GpxActivity
+        sport={sport}
+        profile={{ weightKg }}
+        athlete={{ ...ATHLETE, ...athlete }}
+        onEditSettings={vi.fn()}
+      />
+      <ActivityProbe />
+    </>,
+    { activity: { sportId: sport.id, inputMode: "gpx" } },
   );
-
-  return onMinutesChange;
 }
 
 async function upload(
@@ -77,12 +82,19 @@ async function upload(
   name = "t.gpx",
 ) {
   await u.upload(screen.getByLabelText("Trace GPX"), new File([xml], name));
+  // L'import passe par `await file.text()` : on termine l'acte avant de lire la durée.
+  await act(async () => {});
 }
 
-/** Dernière durée transmise à la page. */
-function lastMinutes(spy: ReturnType<typeof vi.fn>): string | undefined {
-  const calls = spy.mock.calls;
-  return calls.length === 0 ? undefined : (calls[calls.length - 1][0] as string);
+/** Durée publiée au contexte par GpxActivity, en texte. */
+function minutesText(): string {
+  return screen.getByTestId("activity-minutes").textContent ?? "";
+}
+
+/** Durée publiée au contexte, en nombre ; null si elle n'est pas calculable. */
+function minutes(): number | null {
+  const text = minutesText();
+  return text === "" ? null : Number(text);
 }
 
 afterEach(() => {
@@ -102,13 +114,13 @@ describe("GpxActivity — import et résumé", () => {
   });
 
   it("course plate de 10 km, VMA 16, rythme modéré : 54 min (exemple 2)", async () => {
-    const onMinutesChange = renderGpx();
+    renderGpx();
     const u = user();
 
     await upload(u, FLAT_10_KM);
 
     expect(screen.getByTestId("gpx-duration")).toHaveTextContent("54 min");
-    expect(onMinutesChange).toHaveBeenLastCalledWith("54");
+    expect(minutesText()).toBe("54");
 
     const summary = screen.getByTestId("gpx-summary");
     expect(summary).toHaveTextContent("Distance 10 km");
@@ -116,7 +128,7 @@ describe("GpxActivity — import et résumé", () => {
   });
 
   it("passe de rythme modéré à compétition : 44 min (exemple 4)", async () => {
-    const onMinutesChange = renderGpx();
+    renderGpx();
     const u = user();
 
     await upload(u, FLAT_10_KM);
@@ -125,10 +137,10 @@ describe("GpxActivity — import et résumé", () => {
     await u.click(screen.getByRole("radio", { name: "Compétition (85 %)" }));
 
     expect(screen.getByTestId("gpx-duration")).toHaveTextContent("44 min");
-    expect(onMinutesChange).toHaveBeenLastCalledWith("44");
+    expect(minutesText()).toBe("44");
   });
 
-  it("expose les quatre niveaux d'intensité et une aide (exemple 2)", async () => {
+  it("expose les quatre niveaux d'intensité et une aide (exemple 2)", () => {
     renderGpx();
 
     const group = screen.getByRole("radiogroup", { name: "Intensité" });
@@ -154,25 +166,25 @@ describe("GpxActivity — terrain", () => {
   });
 
   it("le trail démarre en roulant et ralentit en très technique (exemple 5)", async () => {
-    const onMinutesChange = renderGpx({ sport: TRAIL });
+    renderGpx({ sport: TRAIL });
     const u = user();
 
     expect(screen.getByRole("radio", { name: "Roulant" })).toBeChecked();
 
     await upload(u, FLAT_10_KM);
-    const rolling = Number(lastMinutes(onMinutesChange));
+    const rolling = minutes();
     expect(rolling).toBe(54);
 
     await u.click(screen.getByRole("radio", { name: "Très technique" }));
 
-    const technical = Number(lastMinutes(onMinutesChange));
-    expect(technical).toBeGreaterThan(rolling);
+    const technical = minutes();
+    expect(technical ?? 0).toBeGreaterThan(rolling ?? 0);
   });
 });
 
 describe("GpxActivity — données requises", () => {
   it("course sans VMA : message, bouton de paramètres et aucune durée (exemple 6)", async () => {
-    const onMinutesChange = renderGpx({ athlete: { vmaKmh: "" } });
+    renderGpx({ athlete: { vmaKmh: "" } });
     const u = user();
 
     await upload(u, FLAT_10_KM);
@@ -181,7 +193,7 @@ describe("GpxActivity — données requises", () => {
       "Renseigne ta VMA dans le bloc Paramètres.",
     );
     expect(screen.queryByTestId("gpx-summary")).not.toBeInTheDocument();
-    expect(onMinutesChange).toHaveBeenLastCalledWith("");
+    expect(minutesText()).toBe("");
 
     const settings = screen.getByRole("button", {
       name: "Modifier mes paramètres",
@@ -190,7 +202,7 @@ describe("GpxActivity — données requises", () => {
   });
 
   it("vélo sans PMA : message PMA et poids, aucune durée (exemple 7)", async () => {
-    const onMinutesChange = renderGpx({
+    renderGpx({
       sport: BIKE,
       athlete: { pmaWatts: "" },
     });
@@ -201,7 +213,7 @@ describe("GpxActivity — données requises", () => {
     expect(screen.getByTestId("gpx-error")).toHaveTextContent(
       "Renseigne ta PMA et ton poids dans le bloc Paramètres.",
     );
-    expect(onMinutesChange).toHaveBeenLastCalledWith("");
+    expect(minutesText()).toBe("");
   });
 
   it("vélo sans vélo déclaré : 9 kg par défaut, position mains en bas (exemple 7)", async () => {
@@ -219,7 +231,7 @@ describe("GpxActivity — données requises", () => {
   });
 
   it("vélo complet : 10 km à plat, PMA 300, 75 kg, vélo 8 kg : 17 min (exemple 3)", async () => {
-    const onMinutesChange = renderGpx({
+    renderGpx({
       sport: BIKE,
       weightKg: "75",
       athlete: { hasBike: true, bikeKg: "8", bikePosition: "hoods" },
@@ -229,7 +241,7 @@ describe("GpxActivity — données requises", () => {
     await upload(u, FLAT_10_KM);
 
     expect(screen.getByTestId("gpx-duration")).toHaveTextContent("17 min");
-    expect(onMinutesChange).toHaveBeenLastCalledWith("17");
+    expect(minutesText()).toBe("17");
     expect(
       screen.queryByText(/Vélo par défaut/),
     ).not.toBeInTheDocument();
@@ -238,7 +250,7 @@ describe("GpxActivity — données requises", () => {
 
 describe("GpxActivity — fichiers refusés", () => {
   it("fichier illisible : message et aucun résultat (exemple 8)", async () => {
-    const onMinutesChange = renderGpx();
+    renderGpx();
     const u = user();
 
     await upload(u, "abc");
@@ -247,7 +259,7 @@ describe("GpxActivity — fichiers refusés", () => {
       "Fichier GPX illisible.",
     );
     expect(screen.queryByTestId("gpx-summary")).not.toBeInTheDocument();
-    expect(onMinutesChange).toHaveBeenLastCalledWith("");
+    expect(minutesText()).toBe("");
   });
 
   it("fichier sans trace : message et aucun résultat (exemple 8)", async () => {
@@ -265,7 +277,7 @@ describe("GpxActivity — fichiers refusés", () => {
   });
 
   it("trace trop longue pour la journée : message de borne (exemple 9)", async () => {
-    const onMinutesChange = renderGpx({ athlete: { vmaKmh: "8" } });
+    renderGpx({ athlete: { vmaKmh: "8" } });
     const u = user();
 
     await upload(u, STEEP_40_KM);
@@ -274,7 +286,7 @@ describe("GpxActivity — fichiers refusés", () => {
       "La durée calculée doit être entre 1 minute et 24 h.",
     );
     expect(screen.queryByTestId("gpx-summary")).not.toBeInTheDocument();
-    expect(onMinutesChange).toHaveBeenLastCalledWith("");
+    expect(minutesText()).toBe("");
   });
 });
 
@@ -328,7 +340,7 @@ describe("GpxActivity — profil et temps de passage", () => {
 
 describe("GpxActivity — retrait et vie privée", () => {
   it("retirer la trace vide la durée et le résultat (exemple 15)", async () => {
-    const onMinutesChange = renderGpx();
+    renderGpx();
     const u = user();
 
     await upload(u, FLAT_10_KM);
@@ -337,17 +349,21 @@ describe("GpxActivity — retrait et vie privée", () => {
     await u.click(screen.getByRole("button", { name: "Retirer la trace" }));
 
     expect(screen.queryByTestId("gpx-summary")).not.toBeInTheDocument();
-    expect(onMinutesChange).toHaveBeenLastCalledWith("");
+    expect(minutesText()).toBe("");
   });
 
   it("ne lit ni n'écrit aucun stockage et n'appelle pas fetch (exemple 16)", async () => {
-    const getItem = vi.spyOn(Storage.prototype, "getItem");
-    const setItem = vi.spyOn(Storage.prototype, "setItem");
-    const removeItem = vi.spyOn(Storage.prototype, "removeItem");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
+    // Les providers lisent le stockage à leur montage : on espionne après coup,
+    // pour ne contrôler que les actions de GpxActivity elle-même.
     renderGpx();
+
+    const getItem = vi.spyOn(Storage.prototype, "getItem");
+    const setItem = vi.spyOn(Storage.prototype, "setItem");
+    const removeItem = vi.spyOn(Storage.prototype, "removeItem");
+
     const u = user();
 
     await upload(u, FLAT_10_KM);
