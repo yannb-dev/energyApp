@@ -47,9 +47,6 @@ function gpxXml(
 /** Trace plate de 10 km, 101 points. */
 const FLAT_10_KM = gpxXml(101);
 
-/** Trace de 2,5 km qui monte de 2 m par 100 m (26 points). */
-const HILLY_2_5_KM = gpxXml(26, (index) => 100 + index * 2);
-
 /** Trace de 40 km à 45 % de pente : la durée dépasse 24 h au rythme modéré. */
 const STEEP_40_KM = gpxXml(401, (index) => 100 + index * 45);
 
@@ -291,41 +288,6 @@ describe("GpxActivity — fichiers refusés", () => {
 });
 
 describe("GpxActivity — profil et temps de passage", () => {
-  it("trace sans altitude : mention, pas de profil, tableau et durée (exemple 10)", async () => {
-    renderGpx();
-    const u = user();
-
-    await upload(u, gpxXml(101, () => undefined));
-
-    expect(
-      screen.getByText(
-        "Altitude absente de la trace : profil plat, durée sans effet de pente.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByTestId("gpx-profile")).not.toBeInTheDocument();
-    expect(screen.getByTestId("gpx-splits")).toBeInTheDocument();
-    expect(screen.getByTestId("gpx-duration")).toHaveTextContent("54 min");
-  });
-
-  it("profil accessible et dernière ligne partielle du tableau (exemple 11)", async () => {
-    renderGpx();
-    const u = user();
-
-    await upload(u, HILLY_2_5_KM);
-
-    const profile = screen.getByTestId("gpx-profile");
-    expect(profile).toHaveAttribute("role", "img");
-    const label = profile.getAttribute("aria-label") ?? "";
-    expect(label).toContain("2,5");
-    expect(label).toContain("dénivelé positif");
-
-    const table = screen.getByTestId("gpx-splits");
-    const rows = within(table).getAllByRole("row");
-    expect(rows).toHaveLength(4);
-    const lastCells = within(rows[3]).getAllByRole("cell");
-    expect(lastCells[0]).toHaveTextContent("2,5");
-  });
-
   it("affiche la mention de vie privée et l'estimation indicative (exemple 2)", () => {
     renderGpx();
 

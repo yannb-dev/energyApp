@@ -20,7 +20,7 @@ describe("page plan de nutrition", () => {
     renderWithProviders(<NutritionPage />);
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "Plan de nutrition" }),
+      screen.getByRole("heading", { level: 1, name: "Résultats" }),
     ).toBeInTheDocument();
     expect(await screen.findByText("Données introuvables")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Revenir au formulaire" })).toHaveAttribute(

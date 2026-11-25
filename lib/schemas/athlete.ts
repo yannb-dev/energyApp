@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { parseDecimal } from "@/lib/energy";
+import { BIKE_POSITIONS } from "@/lib/intensity";
 import { optionalDecimalField } from "@/lib/schemas/fields";
 import {
   BIKE_KG_MAX,
@@ -52,5 +53,13 @@ export const athleteSchema = z
       });
     }
   });
+
+/**
+ * Données athlète enregistrées : les règles du formulaire, plus la position
+ * sur le vélo. safeExtend conserve le superRefine de athleteSchema.
+ */
+export const athleteSettingsSchema = athleteSchema.safeExtend({
+  bikePosition: z.enum(BIKE_POSITIONS.map((position) => position.id)),
+});
 
 export type AthleteValues = z.input<typeof athleteSchema>;

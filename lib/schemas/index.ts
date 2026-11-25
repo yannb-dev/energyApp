@@ -11,3 +11,4 @@ export * from "@/lib/schemas/limits";
 export * from "@/lib/schemas/nutrition";
 export * from "@/lib/schemas/product";
 export * from "@/lib/schemas/profile";
+export * from "@/lib/schemas/settings";

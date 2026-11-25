@@ -1,8 +1,11 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useRouter } from "next/navigation";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import NutritionPlanner from "@/components/NutritionPlanner";
+import useNutritionForms from "@/components/forms/useNutritionForms";
+import { useActivity } from "@/components/providers/ActivityProvider";
 import type { EffortFormValues } from "@/lib/effort";
 import type { Product } from "@/lib/products";
 import {
@@ -17,6 +20,27 @@ const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
 }));
+
+/** Monte Produits + Boisson comme `HomeContent`, avec la validation des trois formulaires. */
+function PlannerHarness() {
+  const forms = useNutritionForms();
+  const { minutes } = useActivity();
+  const router = useRouter();
+
+  async function handleShowResults() {
+    const ok = await forms.submitAll();
+    if (ok && minutes !== null) {
+      router.push("/nutrition");
+    }
+  }
+
+  return (
+    <NutritionPlanner
+      forms={forms}
+      onShowResults={() => void handleShowResults()}
+    />
+  );
+}
 
 type User = ReturnType<typeof userEvent.setup>;
 
@@ -95,7 +119,7 @@ const SETTINGS: NutritionSettings = {
 
 /** Rend le formulaire avec la durée du bloc Activité, ou sans durée du tout. */
 function renderPlanner(effort?: EffortFormValues) {
-  return renderWithProviders(<NutritionPlanner />, {
+  return renderWithProviders(<PlannerHarness />, {
     activity: effort ? { effort } : undefined,
   });
 }
@@ -163,22 +187,15 @@ describe("NutritionPlanner", () => {
     window.localStorage.clear();
   });
 
-  it("affiche les plafonds, la liste de produits, la boisson et les actions", () => {
+  it("affiche la liste de produits, la boisson et les actions", () => {
     renderPlanner(EFFORT_50);
 
-    expect(
-      screen.getByRole("heading", { level: 2, name: "Plafond à respecter" }),
-    ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { level: 2, name: "Produits" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { level: 2, name: "Boisson" }),
     ).toBeInTheDocument();
-
-    expect(screen.getByLabelText("Glucides max (g/h)")).toHaveValue(60);
-    expect(screen.getByLabelText("Sodium max (mg/h)")).toHaveValue(600);
-    expect(screen.getByText("Repère usuel : 30 à 90 g/h")).toBeInTheDocument();
 
     expect(screen.getByLabelText("Marque")).toBeInTheDocument();
     expect(screen.getByLabelText("Nom du produit")).toBeInTheDocument();
@@ -188,7 +205,7 @@ describe("NutritionPlanner", () => {
     ).not.toBeChecked();
 
     expect(
-      screen.getByRole("button", { name: "Calculer ma nutrition" }),
+      screen.getByRole("button", { name: "Voir mes résultats" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Réinitialiser la nutrition" }),
@@ -418,7 +435,7 @@ describe("NutritionPlanner", () => {
     expect(push).not.toHaveBeenCalled();
 
     await u.click(
-      screen.getByRole("button", { name: "Calculer ma nutrition" }),
+      screen.getByRole("button", { name: "Voir mes résultats" }),
     );
 
     expect(push).toHaveBeenCalledWith("/nutrition");
@@ -430,7 +447,7 @@ describe("NutritionPlanner", () => {
 
     await addProduct(u, { name: "Barre endurance", type: "Barre" });
     await u.click(
-      screen.getByRole("button", { name: "Calculer ma nutrition" }),
+      screen.getByRole("button", { name: "Voir mes résultats" }),
     );
 
     expect(push).toHaveBeenCalledWith("/nutrition");
@@ -442,7 +459,7 @@ describe("NutritionPlanner", () => {
 
     await addProduct(u, { name: "Barre endurance", type: "Barre" });
     await u.click(
-      screen.getByRole("button", { name: "Calculer ma nutrition" }),
+      screen.getByRole("button", { name: "Voir mes résultats" }),
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent(
@@ -456,7 +473,7 @@ describe("NutritionPlanner", () => {
 
     await userEvent
       .setup()
-      .click(screen.getByRole("button", { name: "Calculer ma nutrition" }));
+      .click(screen.getByRole("button", { name: "Voir mes résultats" }));
 
     expect(screen.getByText("La marque est obligatoire.")).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
@@ -550,7 +567,6 @@ describe("NutritionPlanner", () => {
     expect(window.localStorage.getItem(NUTRITION_STORAGE_KEY)).toBeNull();
     expect(screen.queryByText("Barre endurance")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Marque")).toHaveValue("");
-    expect(screen.getByLabelText("Glucides max (g/h)")).toHaveValue(60);
     expect(push).not.toHaveBeenCalled();
   });
 
@@ -569,7 +585,7 @@ describe("NutritionPlanner", () => {
 
     await addProduct(u, { name: "Barre endurance", type: "Barre" });
     await u.click(
-      screen.getByRole("button", { name: "Calculer ma nutrition" }),
+      screen.getByRole("button", { name: "Voir mes résultats" }),
     );
 
     expect(push).toHaveBeenCalledWith("/nutrition");

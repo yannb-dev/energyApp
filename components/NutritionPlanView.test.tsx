@@ -4,9 +4,15 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import NutritionPlanView from "@/components/NutritionPlanView";
+import {
+  ATHLETE_STORAGE_KEY,
+  type AthleteSettings,
+} from "@/lib/athleteStorage";
 import type { EffortFormValues } from "@/lib/effort";
+import { buildTrack, parseGpx } from "@/lib/gpx";
 import type { Product } from "@/lib/products";
 import { NUTRITION_STORAGE_KEY, type NutritionSettings } from "@/lib/nutritionStorage";
+import { PROFILE_STORAGE_KEY, type ProfileSettings } from "@/lib/profileStorage";
 import { renderWithProviders } from "@/test/renderWithProviders";
 
 /** Force le débit d'eau pour éprouver le dépassement du plafond hydrique. */
@@ -43,6 +49,24 @@ const EFFORT_60: EffortFormValues = {
   distanceKm: "12",
   speed: "12",
   speedUnit: "kmh",
+};
+
+/** Profil enregistré de référence. */
+const PROFILE: ProfileSettings = {
+  sex: "male",
+  age: "30",
+  weightKg: "70",
+  heightCm: "175",
+  activityIndex: 1,
+};
+
+/** Données athlète de référence, pour le profil altimétrique. */
+const ATHLETE: AthleteSettings = {
+  vmaKmh: "16",
+  pmaWatts: "300",
+  hasBike: false,
+  bikeKg: "",
+  bikePosition: "hoods",
 };
 
 const BARRE: Product = {
@@ -83,6 +107,7 @@ const SETTINGS: NutritionSettings = {
 };
 
 function store(overrides: Partial<NutritionSettings> = {}) {
+  window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(PROFILE));
   window.localStorage.setItem(
     NUTRITION_STORAGE_KEY,
     JSON.stringify({ ...SETTINGS, ...overrides }),
@@ -91,8 +116,26 @@ function store(overrides: Partial<NutritionSettings> = {}) {
 
 function renderPlan(effort: EffortFormValues = EFFORT_120) {
   return renderWithProviders(<NutritionPlanView />, {
-    activity: { effort },
+    activity: { sportId: "course-modere", effort },
   });
+}
+
+/** Pas de latitude (degrés) pour 0,1 km. */
+const STEP_DEG = (0.1 * 180) / (Math.PI * 6371);
+
+/** Fichier GPX plat de 10 km, 101 points. */
+const FLAT_XML = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="test"><trk><trkseg>${Array.from(
+  { length: 101 },
+  (_, index) =>
+    `<trkpt lat="${(45 + index * STEP_DEG).toFixed(9)}" lon="6"><ele>100</ele></trkpt>`,
+).join("")}</trkseg></trk></gpx>`;
+
+function flatTrack() {
+  const parsed = parseGpx(FLAT_XML);
+  if (!parsed.ok) {
+    throw new Error(parsed.error);
+  }
+  return buildTrack(parsed.points);
 }
 
 describe("NutritionPlanView", () => {
@@ -107,13 +150,6 @@ describe("NutritionPlanView", () => {
     renderPlan();
 
     expect(await screen.findByTestId("nutrition-results")).toBeInTheDocument();
-
-    const rappel = within(screen.getByRole("region", { name: "Rappel" }));
-    expect(rappel.getByText("120 min")).toBeInTheDocument();
-    expect(rappel.getByText("Barre endurance · Barre")).toBeInTheDocument();
-    expect(rappel.getByText("Gel café · Gel")).toBeInTheDocument();
-    expect(rappel.getByText("Produit A")).toBeInTheDocument();
-    expect(rappel.getByText("Produit B")).toBeInTheDocument();
 
     const tiles = screen.getAllByTestId("nutrition-product-result");
     expect(tiles).toHaveLength(2);
@@ -255,6 +291,17 @@ describe("NutritionPlanView", () => {
     expect(await screen.findByText("Données introuvables")).toBeInTheDocument();
   });
 
+  it("affiche « Données introuvables » sans profil enregistré (exemple 15)", async () => {
+    window.localStorage.setItem(
+      NUTRITION_STORAGE_KEY,
+      JSON.stringify(SETTINGS),
+    );
+
+    renderPlan();
+
+    expect(await screen.findByText("Données introuvables")).toBeInTheDocument();
+  });
+
   it("propose une aide « ? » à côté du facteur limitant", async () => {
     store();
 
@@ -271,5 +318,74 @@ describe("NutritionPlanView", () => {
     expect(screen.getByRole("dialog", { name: "Facteur limitant" })).toHaveTextContent(
       "part",
     );
+  });
+
+  it("regroupe les résultats en sous-blocs titrés (exemple 13)", async () => {
+    store();
+
+    renderPlan();
+
+    const region = await screen.findByRole("region", { name: "Résultats" });
+
+    expect(
+      within(region).getByRole("heading", { level: 3, name: "Dépense énergétique" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByRole("heading", { level: 3, name: "Récap produits" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByRole("heading", { level: 3, name: "Timeline" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).queryByRole("heading", {
+        level: 3,
+        name: "Profil altimétrique",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("ajoute le profil altimétrique avec une trace GPX (exemple 13)", async () => {
+    store();
+    window.localStorage.setItem(ATHLETE_STORAGE_KEY, JSON.stringify(ATHLETE));
+
+    renderWithProviders(<NutritionPlanView />, {
+      activity: {
+        sportId: "course-modere",
+        inputMode: "gpx",
+        track: flatTrack(),
+        gpxMinutes: 54,
+      },
+    });
+
+    const region = await screen.findByRole("region", { name: "Résultats" });
+    expect(
+      within(region).getByRole("heading", {
+        level: 3,
+        name: "Profil altimétrique",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("ouvre « Rappel de l'activité » avec sport, durée et produits (exemple 14)", async () => {
+    store();
+
+    renderPlan();
+
+    const trigger = await screen.findByRole("button", {
+      name: "Rappel de l'activité",
+    });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    await userEvent.setup().click(trigger);
+
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    const rappel = within(screen.getByRole("dialog", { name: "Rappel" }));
+    expect(rappel.getByText("Sport")).toBeInTheDocument();
+    expect(rappel.getByText("Course à pied (modéré)")).toBeInTheDocument();
+    expect(rappel.getByText("120 min")).toBeInTheDocument();
+    expect(rappel.getByText("Barre endurance · Barre")).toBeInTheDocument();
+    expect(rappel.getByText("Gel café · Gel")).toBeInTheDocument();
+    expect(rappel.getByText("Produit A")).toBeInTheDocument();
+    expect(rappel.getByText("Produit B")).toBeInTheDocument();
   });
 });

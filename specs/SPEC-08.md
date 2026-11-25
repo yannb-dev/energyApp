@@ -28,8 +28,8 @@ Doublons constatés :
 | [08.1](SPEC-08.1.md) | Schémas Zod centralisés, les `validate*` délèguent | Aucun |
 | [08.2](SPEC-08.2.md) | `lib/storage.ts` générique, lecture par `safeParse` | Aucun |
 | [08.3](SPEC-08.3.md) | `UserSettingsProvider` + `ActivityProvider`, fin des callbacks et des paramètres d'URL | Recharger `/nutrition` affiche « Données introuvables » ; le retour depuis `/nutrition` conserve sport, effort et trace GPX |
-| 08.4 | React Hook Form, découpage en `components/forms/*` | Aucun (mêmes libellés, mêmes messages) |
-| 08.5 | Point 7 : page 1 saisie seule, page 2 Résultats (énergie, récap, profil GPX, timeline) | Oui |
+| [08.4](SPEC-08.4.md) | React Hook Form, découpage en `components/forms/*` | Paramètres : un champ vidé affiche son erreur immédiatement (sinon mêmes libellés, mêmes messages) |
+| [08.5](SPEC-08.5.md) | Point 7 : page 1 saisie seule, page 2 Résultats (énergie, récap, profil GPX, timeline) | Oui : « Voir mes résultats » remplace « Calculer » et « Calculer ma nutrition » ; résultats, profil altimétrique et splits passent en page 2 |
 
 Chaque sous-spec est écrite juste avant son implémentation et relue avant de passer à la suivante.
 

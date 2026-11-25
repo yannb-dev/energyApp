@@ -1,7 +1,8 @@
-import { z } from "zod";
-
-import { BIKE_POSITIONS, type BikePositionId } from "@/lib/intensity";
-import { athleteSchema } from "@/lib/schemas/athlete";
+import { type BikePositionId } from "@/lib/intensity";
+import {
+  athleteSchema,
+  athleteSettingsSchema,
+} from "@/lib/schemas/athlete";
 import { toFieldErrors } from "@/lib/schemas/errors";
 import { loadItem, removeItems, saveItem } from "@/lib/storage";
 
@@ -47,17 +48,9 @@ export function validateAthlete(
   return toFieldErrors(athleteSchema, values);
 }
 
-/**
- * Format enregistré : les règles du formulaire, plus la position sur le vélo.
- * safeExtend conserve le superRefine de athleteSchema (extend lèverait).
- */
-const storedAthleteSchema = athleteSchema.safeExtend({
-  bikePosition: z.enum(BIKE_POSITIONS.map((position) => position.id)),
-});
-
 /** Données athlète enregistrées, ou null si absentes, illisibles ou hors bornes. */
 export function loadAthlete(): AthleteSettings | null {
-  return loadItem(ATHLETE_STORAGE_KEY, storedAthleteSchema);
+  return loadItem(ATHLETE_STORAGE_KEY, athleteSettingsSchema);
 }
 
 /** Enregistre les données athlète ; sans vélo, le poids du vélo n'est pas conservé. */
