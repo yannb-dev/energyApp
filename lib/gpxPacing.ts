@@ -19,11 +19,13 @@ import type { Track } from "@/lib/gpx";
 import {
   BIKE_POSITIONS,
   type IntensityId,
+  type SkiLevelId,
   type TerrainId,
 } from "@/lib/intensity";
 import { MINUTES_MAX, MINUTES_MIN } from "@/lib/nutrition";
 import { computeBikePacing, DEFAULT_BIKE_KG } from "@/lib/pacingBike";
 import { computeRunPacing, type PacingResult } from "@/lib/pacingRun";
+import { computeSkimoPacing, skimoAverageMet } from "@/lib/pacingSkimo";
 import type { Sport } from "@/lib/sports";
 
 export const VMA_MESSAGE = "Renseigne ta VMA dans le bloc Paramètres.";
@@ -48,7 +50,7 @@ export function defaultBikePosition() {
 export type GpxOutcome =
   | { kind: "idle" }
   | { kind: "error"; message: string; settingsAction: boolean }
-  | { kind: "ready"; result: PacingResult; bike: boolean };
+  | { kind: "ready"; result: PacingResult; bike: boolean; met?: number };
 
 export type GpxOutcomeInput = {
   track: Track | null;
@@ -57,6 +59,7 @@ export type GpxOutcomeInput = {
   weightKg: string;
   intensity: IntensityId;
   terrain: TerrainId;
+  skiLevel: SkiLevelId;
 };
 
 /** Issue du calcul : rien, une erreur lisible, ou une durée exploitable. */
@@ -67,6 +70,7 @@ export function computeGpxOutcome({
   weightKg,
   intensity,
   terrain,
+  skiLevel,
 }: GpxOutcomeInput): GpxOutcome {
   if (!track) {
     return { kind: "idle" };
@@ -137,6 +141,8 @@ export function computeGpxOutcome({
       intensity,
       terrain: isTrail ? terrain : undefined,
     });
+  } else if (sport.family === "skimo") {
+    result = computeSkimoPacing(track, { intensity, skiLevel });
   } else {
     return { kind: "idle" };
   }
@@ -145,5 +151,15 @@ export function computeGpxOutcome({
     return { kind: "error", message: BOUNDS_MESSAGE, settingsAction: false };
   }
 
-  return { kind: "ready", result, bike: sport.family === "bike" };
+  const met =
+    sport.metPhases !== undefined && result.phases !== undefined
+      ? skimoAverageMet(result.phases, sport.metPhases)
+      : undefined;
+
+  return {
+    kind: "ready",
+    result,
+    bike: sport.family === "bike",
+    ...(met !== undefined ? { met } : {}),
+  };
 }

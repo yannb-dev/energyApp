@@ -13,6 +13,7 @@ import {
 const RUN = findSport("course-modere")!;
 const TRAIL = findSport("trail-modere")!;
 const BIKE = findSport("velo-route-vtt-modere")!;
+const SKI = findSport("ski-rando-modere")!;
 
 /** Données athlète de référence : VMA et PMA renseignées, pas de vélo déclaré. */
 const ATHLETE: AthleteSettings = {
@@ -49,6 +50,11 @@ const FLAT_10_KM = gpxXml(101);
 
 /** Trace de 40 km à 45 % de pente : la durée dépasse 24 h au rythme modéré. */
 const STEEP_40_KM = gpxXml(401, (index) => 100 + index * 45);
+
+/** Trace de ski : 2 km de montée puis 2 km de descente. */
+const SKI_HILL = gpxXml(41, (index) =>
+  100 + (index <= 20 ? index * 10 : (40 - index) * 10),
+);
 
 type RenderOptions = {
   sport?: typeof RUN;
@@ -330,6 +336,68 @@ describe("GpxActivity — retrait et vie privée", () => {
 
     await upload(u, FLAT_10_KM);
     await u.click(screen.getByRole("radio", { name: "Compétition (85 %)" }));
+    await u.click(screen.getByRole("button", { name: "Retirer la trace" }));
+
+    expect(getItem).not.toHaveBeenCalled();
+    expect(setItem).not.toHaveBeenCalled();
+    expect(removeItem).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("GpxActivity — ski de randonnée", () => {
+  it("affiche le niveau de ski, les phases, sans terrain ni VMA (exemple 14)", async () => {
+    renderGpx({ sport: SKI, athlete: { vmaKmh: "" } });
+    const u = user();
+
+    expect(
+      screen.getByRole("radiogroup", { name: "Niveau de ski" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("radiogroup", { name: "Terrain" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Intermédiaire" })).toBeChecked();
+    expect(
+      screen.getByRole("radio", { name: "Rythme modéré (≈ 400 m/h)" }),
+    ).toBeInTheDocument();
+
+    await upload(u, SKI_HILL);
+
+    expect(screen.getByTestId("gpx-phases")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Renseigne ta VMA dans le bloc Paramètres."),
+    ).not.toBeInTheDocument();
+    expect(minutes()).not.toBeNull();
+  });
+
+  it("passer à Expert réduit la durée sur une trace avec descente (exemple 14)", async () => {
+    renderGpx({ sport: SKI });
+    const u = user();
+
+    await upload(u, SKI_HILL);
+    const intermediate = minutes();
+
+    await u.click(screen.getByRole("radio", { name: "Expert" }));
+
+    const expert = minutes();
+    expect(expert ?? 0).toBeLessThan(intermediate ?? 0);
+  });
+
+  it("ne lit ni n'écrit aucun stockage et n'appelle pas fetch en ski (exemple 17)", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderGpx({ sport: SKI });
+
+    const getItem = vi.spyOn(Storage.prototype, "getItem");
+    const setItem = vi.spyOn(Storage.prototype, "setItem");
+    const removeItem = vi.spyOn(Storage.prototype, "removeItem");
+
+    const u = user();
+
+    await upload(u, SKI_HILL);
+    await u.click(screen.getByRole("radio", { name: "Expert" }));
+    await u.click(screen.getByRole("radio", { name: /Compétition/ }));
     await u.click(screen.getByRole("button", { name: "Retirer la trace" }));
 
     expect(getItem).not.toHaveBeenCalled();

@@ -20,9 +20,19 @@ import type { AthleteSettings } from "@/lib/athleteStorage";
 import { formatDuration } from "@/lib/effort";
 import { buildTrack, parseGpx, type GpxError } from "@/lib/gpx";
 import { computeGpxOutcome, defaultBikePosition } from "@/lib/gpxPacing";
-import { INTENSITY_HELP, PACING_METHOD_HELP } from "@/lib/helpTexts";
-import { INTENSITY_LEVELS, TERRAIN_TYPES } from "@/lib/intensity";
+import {
+  INTENSITY_HELP,
+  PACING_METHOD_HELP,
+  SKIMO_INTENSITY_HELP,
+  SKIMO_METHOD_HELP,
+} from "@/lib/helpTexts";
+import {
+  INTENSITY_LEVELS,
+  SKI_LEVELS,
+  TERRAIN_TYPES,
+} from "@/lib/intensity";
 import { DEFAULT_BIKE_KG } from "@/lib/pacingBike";
+import { SKIMO_ASCENT_UNITS_PER_HOUR } from "@/lib/pacingSkimo";
 import type { Sport } from "@/lib/sports";
 
 const FIELD_LABEL = "mb-1 block text-sm font-medium text-ink";
@@ -63,6 +73,7 @@ export default function GpxActivity({
   const track = activity.track;
   const intensity = activity.intensity;
   const terrain = activity.terrain;
+  const skiLevel = activity.skiLevel;
   const [fileError, setFileError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
@@ -70,6 +81,7 @@ export default function GpxActivity({
   const previousSettingsRef = useRef(false);
 
   const isTrail = sport.family === "trail";
+  const isSkimo = sport.family === "skimo";
   const defaultPosition = defaultBikePosition();
 
   const outcome = useMemo(
@@ -81,15 +93,20 @@ export default function GpxActivity({
         weightKg: profile.weightKg,
         intensity,
         terrain,
+        skiLevel,
       }),
-    [track, sport, athlete, profile.weightKg, intensity, terrain],
+    [track, sport, athlete, profile.weightKg, intensity, terrain, skiLevel],
   );
 
-  // Liaison nutrition : durée publiée au contexte dès qu'un résultat valide existe.
+  // Liaison nutrition : durée et MET publiés au contexte dès qu'un résultat valide existe.
   useEffect(() => {
     dispatch({
       type: "gpxMinutesChanged",
       minutes: outcome.kind === "ready" ? outcome.result.minutes : null,
+    });
+    dispatch({
+      type: "gpxMetChanged",
+      met: outcome.kind === "ready" ? (outcome.met ?? null) : null,
     });
   }, [outcome, dispatch]);
 
@@ -191,7 +208,7 @@ export default function GpxActivity({
             label="Aide : intensité"
             title="Intensité"
           >
-            {INTENSITY_HELP}
+            {isSkimo ? SKIMO_INTENSITY_HELP : INTENSITY_HELP}
           </InfoTooltip>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -209,12 +226,47 @@ export default function GpxActivity({
                 className="peer sr-only"
               />
               <label htmlFor={`gpx-intensite-${level.id}`} className={CHIP}>
-                {level.label} ({Math.round(level.ratio * 100)} %)
+                {isSkimo
+                  ? `${level.label} (≈ ${
+                      SKIMO_ASCENT_UNITS_PER_HOUR[level.id] * 100
+                    } m/h)`
+                  : `${level.label} (${Math.round(level.ratio * 100)} %)`}
               </label>
             </div>
           ))}
         </div>
       </div>
+
+      {isSkimo ? (
+        <div role="radiogroup" aria-labelledby="gpx-ski-titre">
+          <p id="gpx-ski-titre" className={FIELD_LABEL}>
+            Niveau de ski
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {SKI_LEVELS.map((level) => (
+              <div key={level.id} className="relative">
+                <input
+                  id={`gpx-ski-${level.id}`}
+                  type="radio"
+                  name="gpx-ski"
+                  value={level.id}
+                  checked={skiLevel === level.id}
+                  onChange={() =>
+                    dispatch({
+                      type: "skiLevelChanged",
+                      skiLevel: level.id,
+                    })
+                  }
+                  className="peer sr-only"
+                />
+                <label htmlFor={`gpx-ski-${level.id}`} className={CHIP}>
+                  {level.label}
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {isTrail ? (
         <div role="radiogroup" aria-labelledby="gpx-terrain-titre">
@@ -276,7 +328,7 @@ export default function GpxActivity({
                 label="Aide : méthode d'estimation"
                 title="Méthode d'estimation"
               >
-                {PACING_METHOD_HELP}
+                {isSkimo ? SKIMO_METHOD_HELP : PACING_METHOD_HELP}
               </InfoTooltip>
             </div>
             <p
@@ -291,6 +343,16 @@ export default function GpxActivity({
               {Math.round(track?.descentM ?? 0)} m · Vitesse moyenne{" "}
               {frenchOneDecimal(outcome.result.averageSpeedKmh)} km/h
             </p>
+            {outcome.result.phases ? (
+              <p data-testid="gpx-phases" className="mt-1 text-sm text-muted">
+                Montée {formatDuration(outcome.result.phases.ascentSec / 60)} ·
+                Descente {formatDuration(outcome.result.phases.descentSec / 60)}{" "}
+                ·{" "}
+                {outcome.result.phases.transitions === 1
+                  ? "1 transition"
+                  : `${outcome.result.phases.transitions} transitions`}
+              </p>
+            ) : null}
           </div>
 
           {sport.family === "bike" && !athlete.hasBike ? (

@@ -20,14 +20,19 @@ const TILE = "rounded-xl border border-line bg-surface-2 p-3";
 
 export default function EnergySummary() {
   const { profile } = useUserSettings();
-  const { activity, minutes } = useActivity();
+  const { activity, minutes, met } = useActivity();
 
   const sport = findSport(activity.sportId);
   const activityLevel =
     ACTIVITY_LEVELS[profile?.activityIndex ?? DEFAULT_ACTIVITY_INDEX] ??
     ACTIVITY_LEVELS[DEFAULT_ACTIVITY_INDEX];
 
-  if (profile === null || sport === undefined || minutes === null) {
+  if (
+    profile === null ||
+    sport === undefined ||
+    minutes === null ||
+    met === null
+  ) {
     return (
       <p className="text-sm text-muted">
         Renseigne ton profil et ton effort pour voir tes chiffres.
@@ -45,7 +50,7 @@ export default function EnergySummary() {
       minutes: String(minutes),
     },
     activityLevel.coefficient,
-    sport.met,
+    met,
   );
 
   if (results === null) {

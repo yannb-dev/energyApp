@@ -36,6 +36,7 @@ export default function CourseProfile() {
     weightKg: profile.weightKg,
     intensity: activity.intensity,
     terrain: activity.terrain,
+    skiLevel: activity.skiLevel,
   });
 
   if (outcome.kind !== "ready") {
@@ -51,7 +52,10 @@ export default function CourseProfile() {
         </p>
       )}
       <ElevationProfile track={track} />
-      <SplitsTable result={outcome.result} bike={outcome.bike} />
+      <SplitsTable
+        result={outcome.result}
+        bike={outcome.bike || sport.family === "skimo"}
+      />
     </div>
   );
 }

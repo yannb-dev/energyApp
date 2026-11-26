@@ -103,6 +103,20 @@ describe("EnergySummary", () => {
     ).toHaveTextContent("Sédentaire");
   });
 
+  it("utilise le MET du mode GPX pour le coût de l'effort (exemple 15)", () => {
+    storeProfile();
+    renderWithProviders(<EnergySummary />, {
+      activity: {
+        sportId: "ski-rando-modere",
+        inputMode: "gpx",
+        gpxMinutes: 98,
+        gpxMet: 6.72,
+      },
+    });
+
+    expect(screen.getByTestId("effort-kcal")).toHaveTextContent("768");
+  });
+
   it("invite à renseigner le profil sans données", () => {
     renderWithProviders(<EnergySummary />, { activity: RUN_50 });
 

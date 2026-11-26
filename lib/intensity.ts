@@ -29,3 +29,22 @@ export const BIKE_POSITIONS = [
 ] as const;
 
 export type BikePositionId = (typeof BIKE_POSITIONS)[number]["id"];
+
+/** Niveau de ski : pilote la vitesse de descente (SPEC-09). */
+export const SKI_LEVELS = [
+  {
+    id: "beginner",
+    label: "Débutant",
+    descentVerticalMh: 1200,
+    descentMaxKmh: 10,
+  },
+  {
+    id: "intermediate",
+    label: "Intermédiaire",
+    descentVerticalMh: 2000,
+    descentMaxKmh: 18,
+  },
+  { id: "expert", label: "Expert", descentVerticalMh: 3000, descentMaxKmh: 30 },
+] as const;
+
+export type SkiLevelId = (typeof SKI_LEVELS)[number]["id"];

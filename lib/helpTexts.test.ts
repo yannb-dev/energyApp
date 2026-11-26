@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ACTIVITY_LEVELS } from "@/lib/energy";
-import { BMR_HELP, CAPS_HELP, INTENSITY_HELP, LIMITING_FACTOR_HELP, PACING_METHOD_HELP, PMA_HELP, STRATEGY_HELP, TDEE_HELP, VMA_HELP } from "@/lib/helpTexts";
+import { BMR_HELP, CAPS_HELP, INTENSITY_HELP, LIMITING_FACTOR_HELP, PACING_METHOD_HELP, PMA_HELP, SKIMO_INTENSITY_HELP, SKIMO_METHOD_HELP, STRATEGY_HELP, TDEE_HELP, VMA_HELP } from "@/lib/helpTexts";
 import {
   CARB_CAP_RECOMMENDED,
   HYDRATION_CAP_ML_PER_HOUR,
@@ -92,5 +92,14 @@ describe("helpTexts", () => {
     expect(PACING_METHOD_HELP).toContain("Minetti");
     expect(PACING_METHOD_HELP).toContain("puissance");
     expect(PACING_METHOD_HELP).toContain("Information générale, pas un conseil médical.");
+  });
+
+  it("SKIMO_INTENSITY_HELP et SKIMO_METHOD_HELP sont non vides et prudents (SPEC-09)", () => {
+    for (const text of [SKIMO_INTENSITY_HELP, SKIMO_METHOD_HELP]) {
+      expect(text.length).toBeGreaterThan(0);
+      expect(text).toContain("Information générale, pas un conseil médical.");
+    }
+    expect(SKIMO_INTENSITY_HELP).toContain("Munter");
+    expect(SKIMO_METHOD_HELP).toContain("Munter");
   });
 });

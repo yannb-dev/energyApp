@@ -77,3 +77,16 @@ export const PACING_METHOD_HELP =
   "Méthode : course et trail appliquent le coût de la pente de Minetti à effort constant, " +
   "vélo résout l'équilibre de puissance (PMA, masse, aérodynamisme, pente). Les temps de " +
   `passage sont cumulés kilomètre par kilomètre. ${DISCLAIMER}`;
+
+/** Aide du bloc « Intensité » en ski de randonnée : méthode Munter. */
+export const SKIMO_INTENSITY_HELP =
+  "En ski de randonnée, l'intensité fixe la vitesse de montée en unités Munter par heure : " +
+  "1 km à plat ou 100 m de dénivelé valent une unité. Une intensité plus haute raccourcit " +
+  `la durée estimée de la montée. Estimation indicative. ${DISCLAIMER}`;
+
+/** Aide du résumé du mode GPX en ski de randonnée : phases et transitions. */
+export const SKIMO_METHOD_HELP =
+  "Méthode : montée et plat avec la méthode Munter (unités d'effort selon l'intensité), " +
+  "descente bornée par une vitesse verticale et une vitesse horizontale maximales selon le " +
+  "niveau de ski, et un temps fixe de transition à chaque changement de phase. Les temps " +
+  `de passage sont cumulés kilomètre par kilomètre. Estimation indicative. ${DISCLAIMER}`;

@@ -31,12 +31,21 @@ export type PacingSplit = {
   descentM: number;
 };
 
+export type PacingPhases = {
+  ascentSec: number;
+  descentSec: number;
+  transitionSec: number;
+  transitions: number;
+};
+
 export type PacingResult = {
   splits: PacingSplit[];
   totalSec: number;
   /** totalSec / 60 arrondi, entier. */
   minutes: number;
   averageSpeedKmh: number;
+  /** Détail par phase, renseigné par le modèle ski de randonnée (SPEC-09). */
+  phases?: PacingPhases;
 };
 
 /** Coût de la pente (J/kg/m), du degré 5 au degré 0. */

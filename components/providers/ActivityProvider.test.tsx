@@ -40,4 +40,34 @@ describe("ActivityProvider", () => {
     expect(result.current.activity.effort.distanceKm).toBe("20");
     expect(result.current.minutes).toBe(100);
   });
+
+  it("expose le MET du sport en saisie manuelle de ski (exemple 13)", () => {
+    const { result } = renderHook(() => useActivity(), {
+      wrapper: ({ children }) => (
+        <ActivityProvider initialState={{ sportId: "ski-rando-modere" }}>
+          {children}
+        </ActivityProvider>
+      ),
+    });
+
+    expect(result.current.met).toBe(7);
+  });
+
+  it("expose le MET GPX quand il est renseigné (exemple 13)", () => {
+    const { result } = renderHook(() => useActivity(), {
+      wrapper: ({ children }) => (
+        <ActivityProvider
+          initialState={{
+            sportId: "ski-rando-modere",
+            inputMode: "gpx",
+            gpxMet: 6.72,
+          }}
+        >
+          {children}
+        </ActivityProvider>
+      ),
+    });
+
+    expect(result.current.met).toBe(6.72);
+  });
 });

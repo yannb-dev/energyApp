@@ -12,6 +12,7 @@ import {
 import {
   activityReducer,
   INITIAL_ACTIVITY,
+  selectMet,
   selectMinutes,
   type ActivityAction,
   type ActivityState,
@@ -20,6 +21,7 @@ import {
 type ActivityContextValue = {
   activity: ActivityState;
   minutes: number | null;
+  met: number | null;
   dispatch: Dispatch<ActivityAction>;
 };
 
@@ -41,9 +43,10 @@ export default function ActivityProvider({
     ...initialState,
   });
   const minutes = useMemo(() => selectMinutes(activity), [activity]);
+  const met = useMemo(() => selectMet(activity), [activity]);
 
   return (
-    <ActivityContext value={{ activity, minutes, dispatch }}>
+    <ActivityContext value={{ activity, minutes, met, dispatch }}>
       {children}
     </ActivityContext>
   );

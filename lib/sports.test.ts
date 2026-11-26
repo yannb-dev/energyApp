@@ -108,9 +108,43 @@ describe("supportsGpx", () => {
     }
   });
 
-  it("refuse la randonnée et le ski de randonnée (exemple 2)", () => {
-    for (const label of ["Randonnée (modéré)", "Ski de randonnée (intense)"]) {
+  it("refuse la randonnée (exemple 2)", () => {
+    for (const label of ["Randonnée (modéré)", "Randonnée (intense)"]) {
       expect(supportsGpx(sportByLabel(label))).toBe(false);
+    }
+  });
+
+  it("accepte les deux sports de ski de randonnée (exemple 10)", () => {
+    for (const label of [
+      "Ski de randonnée (modéré)",
+      "Ski de randonnée (intense)",
+    ]) {
+      expect(supportsGpx(sportByLabel(label))).toBe(true);
+    }
+  });
+});
+
+describe("ski de randonnée", () => {
+  it("passe les deux sports en famille skimo (SPEC-09)", () => {
+    expect(sportByLabel("Ski de randonnée (modéré)").family).toBe("skimo");
+    expect(sportByLabel("Ski de randonnée (intense)").family).toBe("skimo");
+  });
+
+  it("ajoute les MET par phase et conserve le MET global (SPEC-09)", () => {
+    const moderate = sportByLabel("Ski de randonnée (modéré)");
+    const intense = sportByLabel("Ski de randonnée (intense)");
+
+    expect(moderate.metPhases).toEqual({ ascent: 8, descent: 5.3 });
+    expect(intense.metPhases).toEqual({ ascent: 11, descent: 8 });
+    expect(moderate.met).toBe(7);
+    expect(intense.met).toBe(10);
+  });
+
+  it("ne donne pas de MET par phase aux autres sports (SPEC-09)", () => {
+    for (const sport of SPORTS) {
+      if (sport.id !== "ski-rando-modere" && sport.id !== "ski-rando-intense") {
+        expect(sport.metPhases).toBeUndefined();
+      }
     }
   });
 });
