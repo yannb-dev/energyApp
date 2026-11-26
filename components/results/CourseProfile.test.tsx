@@ -103,6 +103,21 @@ describe("CourseProfile", () => {
     expect(lastCells[0]).toHaveTextContent("2,5");
   });
 
+  it("en ski, le tableau affiche la vitesse et pas l'allure (exemple 16)", () => {
+    storeSettings();
+    renderWithProviders(<CourseProfile />, {
+      activity: {
+        sportId: "ski-rando-modere",
+        inputMode: "gpx",
+        track: trackFrom(gpxXml(26, (index) => 100 + index * 2)),
+      },
+    });
+
+    const table = screen.getByTestId("gpx-splits");
+    expect(within(table).getByText("Vitesse")).toBeInTheDocument();
+    expect(within(table).queryByText("Allure")).not.toBeInTheDocument();
+  });
+
   it("ne rend rien en saisie manuelle (exemple 12)", () => {
     storeSettings();
     const { container } = renderWithProviders(<CourseProfile />, {

@@ -9,7 +9,9 @@ export type Sport = {
   /** Unité de vitesse proposée par défaut quand on choisit ce sport. */
   defaultSpeedUnit: SpeedUnit;
   /** Famille du sport : pilote la proposition du mode GPX. */
-  family: "run" | "trail" | "bike" | "other";
+  family: "run" | "trail" | "bike" | "skimo" | "other";
+  /** MET de montée et de descente, pour les sports à phases (ski de randonnée). */
+  metPhases?: { ascent: number; descent: number };
 };
 
 /** Sports d'endurance, MET issus du Compendium of Physical Activities. */
@@ -61,14 +63,16 @@ export const SPORTS: readonly Sport[] = [
     label: "Ski de randonnée (modéré)",
     met: 7,
     defaultSpeedUnit: "kmh",
-    family: "other",
+    family: "skimo",
+    metPhases: { ascent: 8, descent: 5.3 },
   },
   {
     id: "ski-rando-intense",
     label: "Ski de randonnée (intense)",
     met: 10,
     defaultSpeedUnit: "kmh",
-    family: "other",
+    family: "skimo",
+    metPhases: { ascent: 11, descent: 8 },
   },
   {
     id: "randonnee-modere",
@@ -95,6 +99,7 @@ export function supportsGpx(sport: Sport): boolean {
   return (
     sport.family === "run" ||
     sport.family === "trail" ||
-    sport.family === "bike"
+    sport.family === "bike" ||
+    sport.family === "skimo"
   );
 }

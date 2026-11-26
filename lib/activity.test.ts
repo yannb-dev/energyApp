@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   activityReducer,
   INITIAL_ACTIVITY,
+  selectMet,
   selectMinutes,
   type ActivityState,
 } from "@/lib/activity";
@@ -45,7 +46,9 @@ describe("INITIAL_ACTIVITY", () => {
       track: null,
       intensity: "moderate",
       terrain: "rolling",
+      skiLevel: "intermediate",
       gpxMinutes: null,
+      gpxMet: null,
     });
   });
 });
@@ -140,5 +143,88 @@ describe("selectMinutes", () => {
 
   it("retourne null sans durée GPX (exemple 6)", () => {
     expect(selectMinutes({ ...GPX_STATE, gpxMinutes: null })).toBeNull();
+  });
+});
+
+describe("skiLevelChanged", () => {
+  it("met à jour le niveau de ski (exemple 12)", () => {
+    const state = activityReducer(
+      { ...INITIAL_ACTIVITY, sportId: "ski-rando-modere" },
+      { type: "skiLevelChanged", skiLevel: "expert" },
+    );
+
+    expect(state.skiLevel).toBe("expert");
+  });
+});
+
+describe("gpxMetChanged", () => {
+  it("met à jour le MET calculé (exemple 12)", () => {
+    const state = activityReducer(GPX_STATE, {
+      type: "gpxMetChanged",
+      met: 6.72,
+    });
+
+    expect(state.gpxMet).toBe(6.72);
+  });
+
+  it("remet le MET à null en passant en mode manuel (exemple 12)", () => {
+    const state = activityReducer(
+      { ...GPX_STATE, gpxMet: 6.72 },
+      { type: "inputModeChanged", mode: "manual" },
+    );
+
+    expect(state.gpxMet).toBeNull();
+  });
+
+  it("remet le MET à null avec un sport sans GPX (exemple 12)", () => {
+    const state = activityReducer(
+      { ...GPX_STATE, gpxMet: 6.72 },
+      { type: "sportChanged", sportId: "randonnee-modere" },
+    );
+
+    expect(state.gpxMet).toBeNull();
+  });
+
+  it("garde le mode GPX et la trace entre ski modéré et intense (exemple 12)", () => {
+    const skiState: ActivityState = {
+      ...GPX_STATE,
+      sportId: "ski-rando-modere",
+    };
+
+    const state = activityReducer(skiState, {
+      type: "sportChanged",
+      sportId: "ski-rando-intense",
+    });
+
+    expect(state.inputMode).toBe("gpx");
+    expect(state.track).toBe(TRACK);
+  });
+});
+
+describe("selectMet", () => {
+  it("renvoie le MET du sport en saisie manuelle de ski (exemple 13)", () => {
+    expect(
+      selectMet({ ...INITIAL_ACTIVITY, sportId: "ski-rando-modere" }),
+    ).toBe(7);
+  });
+
+  it("renvoie le MET GPX quand il est fourni (exemple 13)", () => {
+    expect(
+      selectMet({
+        ...GPX_STATE,
+        sportId: "ski-rando-modere",
+        gpxMet: 6.72,
+      }),
+    ).toBe(6.72);
+  });
+
+  it("retourne null sans sport (exemple 13)", () => {
+    expect(selectMet(INITIAL_ACTIVITY)).toBeNull();
+  });
+
+  it("retombe sur le MET du sport si le MET GPX manque (exemple 13)", () => {
+    expect(
+      selectMet({ ...GPX_STATE, sportId: "ski-rando-modere", gpxMet: null }),
+    ).toBe(7);
   });
 });

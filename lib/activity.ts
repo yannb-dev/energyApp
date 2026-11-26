@@ -4,7 +4,7 @@ import {
   type EffortFormValues,
 } from "@/lib/effort";
 import type { Track } from "@/lib/gpx";
-import type { IntensityId, TerrainId } from "@/lib/intensity";
+import type { IntensityId, SkiLevelId, TerrainId } from "@/lib/intensity";
 import { findSport, supportsGpx } from "@/lib/sports";
 
 /**
@@ -24,8 +24,12 @@ export type ActivityState = {
   track: Track | null;
   intensity: IntensityId;
   terrain: TerrainId;
+  /** Niveau de ski, utilisé par le mode GPX du ski de randonnée. */
+  skiLevel: SkiLevelId;
   /** Durée calculée par GpxActivity, en minutes ; null si non calculable. */
   gpxMinutes: number | null;
+  /** MET moyen calculé par GpxActivity en ski ; null hors mode GPX prêt. */
+  gpxMet: number | null;
 };
 
 export type ActivityAction =
@@ -35,7 +39,9 @@ export type ActivityAction =
   | { type: "trackChanged"; track: Track | null }
   | { type: "intensityChanged"; intensity: IntensityId }
   | { type: "terrainChanged"; terrain: TerrainId }
+  | { type: "skiLevelChanged"; skiLevel: SkiLevelId }
   | { type: "gpxMinutesChanged"; minutes: number | null }
+  | { type: "gpxMetChanged"; met: number | null }
   | { type: "reset" };
 
 export const INITIAL_ACTIVITY: ActivityState = {
@@ -45,7 +51,9 @@ export const INITIAL_ACTIVITY: ActivityState = {
   track: null,
   intensity: "moderate",
   terrain: "rolling",
+  skiLevel: "intermediate",
   gpxMinutes: null,
+  gpxMet: null,
 };
 
 export function activityReducer(
@@ -65,6 +73,7 @@ export function activityReducer(
         next.inputMode = "manual";
         next.track = null;
         next.gpxMinutes = null;
+        next.gpxMet = null;
       }
       // Le sport ne change l'unité que si la vitesse est encore vide.
       if (state.effort.speed.trim() === "") {
@@ -82,6 +91,7 @@ export function activityReducer(
         inputMode: action.mode,
         track: null,
         gpxMinutes: null,
+        gpxMet: null,
       };
     }
 
@@ -97,8 +107,14 @@ export function activityReducer(
     case "terrainChanged":
       return { ...state, terrain: action.terrain };
 
+    case "skiLevelChanged":
+      return { ...state, skiLevel: action.skiLevel };
+
     case "gpxMinutesChanged":
       return { ...state, gpxMinutes: action.minutes };
+
+    case "gpxMetChanged":
+      return { ...state, gpxMet: action.met };
 
     case "reset":
       return INITIAL_ACTIVITY;
@@ -115,4 +131,20 @@ export function selectMinutes(state: ActivityState): number | null {
     return state.gpxMinutes;
   }
   return computeEffortDuration(state.effort)?.minutes ?? null;
+}
+
+/** Seule source du MET pour les pages : MET GPX en ski, sinon MET du sport. */
+export function selectMet(state: ActivityState): number | null {
+  const sport = findSport(state.sportId);
+  if (sport === undefined) {
+    return null;
+  }
+  if (
+    state.inputMode === "gpx" &&
+    supportsGpx(sport) &&
+    state.gpxMet !== null
+  ) {
+    return state.gpxMet;
+  }
+  return sport.met;
 }
