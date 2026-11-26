@@ -7,9 +7,10 @@
 5. Définir une activité en fonction d'une trace GPX, d'une VMA ou d'une PMA
 6. Appliquer le plan nutrition de l'activité sur un profil altimétrique et exporter cette vue pour 3 formats différents, "dossard", "top tube vélo", "A4".
 7. Appliquer des correction UI/UX pour une meilleur exprérience uitilisateur.
-8. Créer un feedBack des activités enregistrer afin d'adapter les différents calculs et répartition des produits ingérés.
-9. Ajouter une page "After-Activity" qui apport un plan pour la reconstruction des réserves glucidiques, hydriques et des apports en protéines.
-10. Appliquer un nettoyage de la code base pour retirer le code mort.
+8. Correctif mineur
+9. Créer un feedBack des activités enregistrer afin d'adapter les différents calculs et répartition des produits ingérés.
+10. Ajouter une page "After-Activity" qui apport un plan pour la reconstruction des réserves glucidiques, hydriques et des apports en protéines.
+11. Appliquer un nettoyage de la code base pour retirer le code mort.
 
 ## Détail de chaque nouvelle fonctionnalité
 
@@ -133,7 +134,11 @@ L'export doit permettre à l'utilisateur d'enregistrer une image format .jpeg ou
 **Page 1** Paramétrage du sportif" fenêtre replié si données présente en local-storage puis deux blocs : "Activité" (si trace GPX retirer le profil altimétrique + tour 1km) et "Alimentation" _Aucun bloc "Résultats" dans ce bloc_ Intégration du bloc "Plafonds à respecter" à déplacer à la fin du bloc "Activité".
 **Page 2** Utilisation d'un infotool pour le "Rappel" de l'activité et des produit utilisés pour l'activité. Puis un bloc "Résultats avec 3 sous-blocs "DEJ + Dépense activité" + "Récap produits"+ "Profil altimétrique" + "Timeline"
 
-### 8. Créer un feedBack des activités enregistrer afin d'adapter les différents calculs et répartition des produits ingérés.
+### 8. Correctif mineur
+
+> - En cours d'analyse
+
+### 9. Créer un feedBack des activités enregistrer afin d'adapter les différents calculs et répartition des produits ingérés.
 
 Afin d'améliorer l'expérience utilisateur, l'activité enregistré peut recevoir un feedBack afin d'adapter les formules de calcul.
 
@@ -155,6 +160,6 @@ Question fixe : [
 > - Problème gastrique : ajouter un message de prudence (consulter un professionnel si récurrent) pour rester hors du champ santé.
 > - L'ajustement est propre à l'utilisateur et doit rester réversible.
 
-### 9. Ajouter une page "After-Activity" qui apport un plan pour la reconstruction des réserves glucidiques, hydriques et des apports en protéines.
+### 10. Ajouter une page "After-Activity" qui apport un plan pour la reconstruction des réserves glucidiques, hydriques et des apports en protéines.
 
-### 10. Effectuer un nettoyage pour supprimer le code mort.
+### 11. Effectuer un nettoyage pour supprimer le code mort.

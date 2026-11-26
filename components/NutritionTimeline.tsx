@@ -59,34 +59,6 @@ export default function NutritionTimeline({
       aria-label={label}
       className="motion-safe:animate-rise flex flex-col gap-3"
     >
-      <ul className="flex flex-col items-center text-sm">
-        {products.map((product) => {
-          const units =
-            plan.items.find((item) => item.productId === product.id)?.units ??
-            0;
-          return (
-            <div
-              key={product.id}
-              data-testid="timeline-recap-solid"
-              data-product-id={product.id}
-              className="w-[50%] flex items-center justify-between font-medium text-ink"
-            >
-              <SolidIcon type={product.type} className="w-9" />
-              {solidLabel(product.type, units)}
-            </div>
-          );
-        })}
-        {plan.drink ? (
-          <div
-            data-testid="timeline-recap-drink"
-            className="w-[50%] flex items-center justify-between font-medium text-ink"
-          >
-            <BottleIcon className="w-5" />
-            {volumeMl} ml
-          </div>
-        ) : null}
-      </ul>
-
       <div className="mb-6">
         <div
           data-testid="timeline-axis"
