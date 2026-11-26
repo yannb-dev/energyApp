@@ -1,18 +1,26 @@
 import { parseDecimal } from "@/lib/energy";
 import { MINUTES_MAX, MINUTES_MIN } from "@/lib/nutrition";
+import { toFieldErrors } from "@/lib/schemas/errors";
+import { effortSchema } from "@/lib/schemas/effort";
+import {
+  DISTANCE_KM_MAX,
+  DISTANCE_KM_MIN,
+  SPEED_KMH_MAX,
+  SPEED_KMH_MIN,
+} from "@/lib/schemas/limits";
 
 export const SPEED_UNITS = ["kmh", "minkm"] as const;
 export type SpeedUnit = (typeof SPEED_UNITS)[number];
 
-export const DISTANCE_KM_MIN = 0.1;
-export const DISTANCE_KM_MAX = 1000;
-
-export const SPEED_KMH_MIN = 1;
-export const SPEED_KMH_MAX = 100;
-
-/** Bornes de l'allure, en secondes par km : 0:36 à 60:00 (inverse de 100 et 1 km/h). */
-export const PACE_SEC_PER_KM_MIN = 36;
-export const PACE_SEC_PER_KM_MAX = 3600;
+/** Bornes partagées avec les schémas de validation (lib/schemas/limits.ts). */
+export {
+  DISTANCE_KM_MAX,
+  DISTANCE_KM_MIN,
+  PACE_SEC_PER_KM_MAX,
+  PACE_SEC_PER_KM_MIN,
+  SPEED_KMH_MAX,
+  SPEED_KMH_MIN,
+} from "@/lib/schemas/limits";
 
 export type EffortFormValues = {
   distanceKm: string;
@@ -28,11 +36,6 @@ export const EMPTY_EFFORT: EffortFormValues = {
 };
 
 export type EffortErrors = Partial<Record<"distanceKm" | "speed", string>>;
-
-/** Affichage d'un nombre à la française dans un message (« 0,1 »). */
-function french(value: number): string {
-  return String(value).replace(".", ",");
-}
 
 /** « m:ss » ou « mm:ss » vers des secondes par km ; null si le format est refusé. */
 export function parsePace(text: string): number | null {
@@ -132,54 +135,5 @@ export function computeEffortDuration(
 
 /** Valide la distance puis la vitesse, et la durée seulement si les deux sont valides. */
 export function validateEffort(values: EffortFormValues): EffortErrors {
-  const errors: EffortErrors = {};
-  const isPace = values.speedUnit === "minkm";
-
-  const distanceKm = parseDecimal(values.distanceKm);
-  if (values.distanceKm.trim() === "") {
-    errors.distanceKm = "La distance est obligatoire.";
-  } else if (
-    distanceKm === null ||
-    distanceKm < DISTANCE_KM_MIN ||
-    distanceKm > DISTANCE_KM_MAX
-  ) {
-    errors.distanceKm = `La distance doit être entre ${french(DISTANCE_KM_MIN)} et ${french(DISTANCE_KM_MAX)} km.`;
-  }
-
-  const speedKmh = speedToKmh(values.speed, values.speedUnit);
-  if (values.speed.trim() === "") {
-    errors.speed = isPace
-      ? "L'allure est obligatoire."
-      : "La vitesse est obligatoire.";
-  } else if (isPace) {
-    const secPerKm = parsePace(values.speed);
-    if (secPerKm === null) {
-      errors.speed = "L'allure doit être au format mm:ss (ex. 5:30).";
-    } else if (
-      secPerKm < PACE_SEC_PER_KM_MIN ||
-      secPerKm > PACE_SEC_PER_KM_MAX
-    ) {
-      errors.speed = `L'allure doit être entre ${formatPace(PACE_SEC_PER_KM_MIN)} et ${formatPace(PACE_SEC_PER_KM_MAX)} min/km.`;
-    }
-  } else if (
-    speedKmh === null ||
-    speedKmh < SPEED_KMH_MIN ||
-    speedKmh > SPEED_KMH_MAX
-  ) {
-    errors.speed = `La vitesse doit être entre ${french(SPEED_KMH_MIN)} et ${french(SPEED_KMH_MAX)} km/h.`;
-  }
-
-  if (
-    errors.distanceKm === undefined &&
-    errors.speed === undefined &&
-    distanceKm !== null &&
-    speedKmh !== null
-  ) {
-    const minutes = computeDurationMinutes(distanceKm, speedKmh);
-    if (minutes < MINUTES_MIN || minutes > MINUTES_MAX) {
-      errors.distanceKm = "La durée calculée doit être entre 1 minute et 24 h.";
-    }
-  }
-
-  return errors;
+  return toFieldErrors(effortSchema, values);
 }

@@ -1,21 +1,22 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import NutritionPlanView from "@/components/NutritionPlanView";
+import {
+  ATHLETE_STORAGE_KEY,
+  type AthleteSettings,
+} from "@/lib/athleteStorage";
+import type { EffortFormValues } from "@/lib/effort";
+import { buildTrack, parseGpx } from "@/lib/gpx";
 import type { Product } from "@/lib/products";
 import { NUTRITION_STORAGE_KEY, type NutritionSettings } from "@/lib/nutritionStorage";
-
-const navigation = vi.hoisted(() => ({ search: new URLSearchParams() }));
+import { PROFILE_STORAGE_KEY, type ProfileSettings } from "@/lib/profileStorage";
+import { renderWithProviders } from "@/test/renderWithProviders";
 
 /** Force le débit d'eau pour éprouver le dépassement du plafond hydrique. */
 const water = vi.hoisted(() => ({ override: null as number | null }));
-
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
-  useSearchParams: () => navigation.search,
-}));
 
 vi.mock("next/link", () => ({
   default: ({ href, children, className }: { href: string; children: ReactNode; className?: string }) => (
@@ -35,6 +36,38 @@ vi.mock("@/lib/nutrition", async (importOriginal) => {
     ) => water.override ?? actual.computeHydrationRate(plan, minutes),
   };
 });
+
+/** Effort de référence : 24 km à 12 km/h, soit 120 min. */
+const EFFORT_120: EffortFormValues = {
+  distanceKm: "24",
+  speed: "12",
+  speedUnit: "kmh",
+};
+
+/** Même allure sur 12 km : 60 min. */
+const EFFORT_60: EffortFormValues = {
+  distanceKm: "12",
+  speed: "12",
+  speedUnit: "kmh",
+};
+
+/** Profil enregistré de référence. */
+const PROFILE: ProfileSettings = {
+  sex: "male",
+  age: "30",
+  weightKg: "70",
+  heightCm: "175",
+  activityIndex: 1,
+};
+
+/** Données athlète de référence, pour le profil altimétrique. */
+const ATHLETE: AthleteSettings = {
+  vmaKmh: "16",
+  pmaWatts: "300",
+  hasBike: false,
+  bikeKg: "",
+  bikePosition: "hoods",
+};
 
 const BARRE: Product = {
   id: "barre",
@@ -74,32 +107,49 @@ const SETTINGS: NutritionSettings = {
 };
 
 function store(overrides: Partial<NutritionSettings> = {}) {
+  window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(PROFILE));
   window.localStorage.setItem(
     NUTRITION_STORAGE_KEY,
     JSON.stringify({ ...SETTINGS, ...overrides }),
   );
 }
 
+function renderPlan(effort: EffortFormValues = EFFORT_120) {
+  return renderWithProviders(<NutritionPlanView />, {
+    activity: { sportId: "course-modere", effort },
+  });
+}
+
+/** Pas de latitude (degrés) pour 0,1 km. */
+const STEP_DEG = (0.1 * 180) / (Math.PI * 6371);
+
+/** Fichier GPX plat de 10 km, 101 points. */
+const FLAT_XML = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="test"><trk><trkseg>${Array.from(
+  { length: 101 },
+  (_, index) =>
+    `<trkpt lat="${(45 + index * STEP_DEG).toFixed(9)}" lon="6"><ele>100</ele></trkpt>`,
+).join("")}</trkseg></trk></gpx>`;
+
+function flatTrack() {
+  const parsed = parseGpx(FLAT_XML);
+  if (!parsed.ok) {
+    throw new Error(parsed.error);
+  }
+  return buildTrack(parsed.points);
+}
+
 describe("NutritionPlanView", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    navigation.search = new URLSearchParams("min=120");
     water.override = null;
   });
 
   it("affiche le rappel, une tuile par produit, les totaux et la timeline", async () => {
     store();
 
-    render(<NutritionPlanView />);
+    renderPlan();
 
     expect(await screen.findByTestId("nutrition-results")).toBeInTheDocument();
-
-    const rappel = within(screen.getByRole("region", { name: "Rappel" }));
-    expect(rappel.getByText("120 min")).toBeInTheDocument();
-    expect(rappel.getByText("Barre endurance · Barre")).toBeInTheDocument();
-    expect(rappel.getByText("Gel café · Gel")).toBeInTheDocument();
-    expect(rappel.getByText("Produit A")).toBeInTheDocument();
-    expect(rappel.getByText("Produit B")).toBeInTheDocument();
 
     const tiles = screen.getAllByTestId("nutrition-product-result");
     expect(tiles).toHaveLength(2);
@@ -125,37 +175,10 @@ describe("NutritionPlanView", () => {
     );
   });
 
-  it("restaure l'effort dans le lien retour quand l'URL le contient (exemple 19)", async () => {
-    navigation.search = new URLSearchParams("min=50&km=10&v=5:00&u=minkm");
+  it("« Modifier mes données » pointe vers l'accueil (exemple 19)", async () => {
     store();
 
-    render(<NutritionPlanView />);
-
-    await screen.findByTestId("nutrition-results");
-    expect(screen.getByRole("link", { name: "Modifier mes données" })).toHaveAttribute(
-      "href",
-      "/?km=10&v=5%3A00&u=minkm",
-    );
-  });
-
-  it("revient à l'accueil sans effort quand les paramètres sont invalides", async () => {
-    navigation.search = new URLSearchParams("min=120&km=10&v=5:00&u=xx");
-    store();
-
-    render(<NutritionPlanView />);
-
-    await screen.findByTestId("nutrition-results");
-    expect(screen.getByRole("link", { name: "Modifier mes données" })).toHaveAttribute(
-      "href",
-      "/",
-    );
-  });
-
-  it("revient à l'accueil sans effort quand la distance est invalide", async () => {
-    navigation.search = new URLSearchParams("min=120&km=abc&v=5:00&u=minkm");
-    store();
-
-    render(<NutritionPlanView />);
+    renderPlan();
 
     await screen.findByTestId("nutrition-results");
     expect(screen.getByRole("link", { name: "Modifier mes données" })).toHaveAttribute(
@@ -167,7 +190,7 @@ describe("NutritionPlanView", () => {
   it("déduit la boisson du budget et la présente dans une tuile (exemple 6)", async () => {
     store({ drinkEnabled: true });
 
-    render(<NutritionPlanView />);
+    renderPlan();
 
     const tiles = await screen.findAllByTestId("nutrition-product-result");
     expect(within(tiles[0]).getByTestId("nutrition-units")).toHaveTextContent("1");
@@ -185,7 +208,7 @@ describe("NutritionPlanView", () => {
   it("calcule uniquement avec la boisson sans solide (exemple 15)", async () => {
     store({ selectedIds: [], products: [], drinkEnabled: true });
 
-    render(<NutritionPlanView />);
+    renderPlan();
 
     expect(await screen.findByTestId("nutrition-result-liquid")).toHaveTextContent("Liquide");
 
@@ -198,7 +221,7 @@ describe("NutritionPlanView", () => {
   it("affiche « Aucune boisson » et une jauge d'eau vide sans boisson", async () => {
     store();
 
-    render(<NutritionPlanView />);
+    renderPlan();
 
     const liquid = await screen.findByTestId("nutrition-result-liquid");
     expect(liquid).toHaveTextContent("Aucune boisson");
@@ -207,7 +230,6 @@ describe("NutritionPlanView", () => {
   });
 
   it("passe les plafonds en danger quand ils sont dépassés", async () => {
-    navigation.search = new URLSearchParams("min=60");
     store({
       products: [BARRE],
       selectedIds: ["barre"],
@@ -217,7 +239,7 @@ describe("NutritionPlanView", () => {
       drinkSaltPer100: "0",
     });
 
-    render(<NutritionPlanView />);
+    renderPlan(EFFORT_60);
 
     const carbs = await screen.findByTestId("nutrition-cap-carbs");
     expect(carbs).toHaveTextContent("Glucides : 81,0 / 60 g/h");
@@ -232,7 +254,7 @@ describe("NutritionPlanView", () => {
     water.override = 900;
     store({ drinkEnabled: true });
 
-    render(<NutritionPlanView />);
+    renderPlan();
 
     const gauge = await screen.findByTestId("nutrition-cap-water");
     expect(gauge).toHaveTextContent("Eau : 900 ml/h");
@@ -240,7 +262,7 @@ describe("NutritionPlanView", () => {
   });
 
   it("affiche « Données introuvables » sans stockage", async () => {
-    render(<NutritionPlanView />);
+    renderPlan();
 
     expect(await screen.findByText("Données introuvables")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Revenir au formulaire" })).toHaveAttribute(
@@ -249,11 +271,33 @@ describe("NutritionPlanView", () => {
     );
   });
 
-  it("affiche « Données introuvables » pour une durée invalide", async () => {
-    navigation.search = new URLSearchParams("min=zéro");
+  it("affiche « Données introuvables » sans activité, même avec une nutrition valide (exemple 14)", async () => {
     store();
 
-    render(<NutritionPlanView />);
+    renderWithProviders(<NutritionPlanView />);
+
+    expect(await screen.findByText("Données introuvables")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Revenir au formulaire" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+  });
+
+  it("affiche « Données introuvables » pour une boisson incomplète (exemple 15)", async () => {
+    store({ drinkEnabled: true, drinkConcentration: "" });
+
+    renderPlan();
+
+    expect(await screen.findByText("Données introuvables")).toBeInTheDocument();
+  });
+
+  it("affiche « Données introuvables » sans profil enregistré (exemple 15)", async () => {
+    window.localStorage.setItem(
+      NUTRITION_STORAGE_KEY,
+      JSON.stringify(SETTINGS),
+    );
+
+    renderPlan();
 
     expect(await screen.findByText("Données introuvables")).toBeInTheDocument();
   });
@@ -261,7 +305,7 @@ describe("NutritionPlanView", () => {
   it("propose une aide « ? » à côté du facteur limitant", async () => {
     store();
 
-    render(<NutritionPlanView />);
+    renderPlan();
 
     const help = await screen.findByRole("button", { name: "Aide : facteur limitant" });
 
@@ -274,5 +318,74 @@ describe("NutritionPlanView", () => {
     expect(screen.getByRole("dialog", { name: "Facteur limitant" })).toHaveTextContent(
       "part",
     );
+  });
+
+  it("regroupe les résultats en sous-blocs titrés (exemple 13)", async () => {
+    store();
+
+    renderPlan();
+
+    const region = await screen.findByRole("region", { name: "Résultats" });
+
+    expect(
+      within(region).getByRole("heading", { level: 3, name: "Dépense énergétique" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByRole("heading", { level: 3, name: "Récap produits" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByRole("heading", { level: 3, name: "Timeline" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).queryByRole("heading", {
+        level: 3,
+        name: "Profil altimétrique",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("ajoute le profil altimétrique avec une trace GPX (exemple 13)", async () => {
+    store();
+    window.localStorage.setItem(ATHLETE_STORAGE_KEY, JSON.stringify(ATHLETE));
+
+    renderWithProviders(<NutritionPlanView />, {
+      activity: {
+        sportId: "course-modere",
+        inputMode: "gpx",
+        track: flatTrack(),
+        gpxMinutes: 54,
+      },
+    });
+
+    const region = await screen.findByRole("region", { name: "Résultats" });
+    expect(
+      within(region).getByRole("heading", {
+        level: 3,
+        name: "Profil altimétrique",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("ouvre « Rappel de l'activité » avec sport, durée et produits (exemple 14)", async () => {
+    store();
+
+    renderPlan();
+
+    const trigger = await screen.findByRole("button", {
+      name: "Rappel de l'activité",
+    });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    await userEvent.setup().click(trigger);
+
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    const rappel = within(screen.getByRole("dialog", { name: "Rappel" }));
+    expect(rappel.getByText("Sport")).toBeInTheDocument();
+    expect(rappel.getByText("Course à pied (modéré)")).toBeInTheDocument();
+    expect(rappel.getByText("120 min")).toBeInTheDocument();
+    expect(rappel.getByText("Barre endurance · Barre")).toBeInTheDocument();
+    expect(rappel.getByText("Gel café · Gel")).toBeInTheDocument();
+    expect(rappel.getByText("Produit A")).toBeInTheDocument();
+    expect(rappel.getByText("Produit B")).toBeInTheDocument();
   });
 });

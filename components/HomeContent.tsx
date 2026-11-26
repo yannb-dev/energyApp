@@ -1,58 +1,119 @@
 "use client";
 
+/**
+ * Orchestration de la page 1 (SPEC-08.5) : un seul bouton « Voir mes résultats »
+ * valide Paramètres, Activité et Nutrition, puis navigue vers `/nutrition`.
+ */
+
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { FormProvider, useWatch } from "react-hook-form";
 
 import EnergyCalculator from "@/components/EnergyCalculator";
+import InfoTooltip from "@/components/InfoTooltip";
 import NutritionPlanner from "@/components/NutritionPlanner";
-import {
-  EMPTY_EFFORT,
-  validateEffort,
-  type EffortFormValues,
-  type SpeedUnit,
-} from "@/lib/effort";
-
-function isSpeedUnit(value: string | null): value is SpeedUnit {
-  return value === "kmh" || value === "minkm";
-}
-
-/** `km`, `v` et `u` de l'URL : les trois sont validés ensemble, sinon aucun. */
-function effortFromSearch(searchParams: {
-  get(name: string): string | null;
-}): EffortFormValues {
-  const distanceKm = searchParams.get("km");
-  const speed = searchParams.get("v");
-  const unit = searchParams.get("u");
-
-  if (distanceKm === null || speed === null || !isSpeedUnit(unit)) {
-    return EMPTY_EFFORT;
-  }
-
-  const effort: EffortFormValues = { distanceKm, speed, speedUnit: unit };
-  if (Object.keys(validateEffort(effort)).length > 0) {
-    return EMPTY_EFFORT;
-  }
-  return effort;
-}
+import { CapsFields } from "@/components/forms/CapsFields";
+import { CARD_TITLE } from "@/components/forms/styles";
+import useNutritionForms from "@/components/forms/useNutritionForms";
+import useSettingsForm from "@/components/forms/useSettingsForm";
+import { useActivity } from "@/components/providers/ActivityProvider";
+import { useUserSettings } from "@/components/providers/UserSettingsProvider";
+import { validateInputs } from "@/lib/energy";
+import { validateEffort } from "@/lib/effort";
+import { CAPS_HELP } from "@/lib/helpTexts";
+import { findSport, supportsGpx } from "@/lib/sports";
 
 export default function HomeContent() {
-  const searchParams = useSearchParams();
-  // Seul l'effort est restauré depuis l'URL ; le profil « Paramètres » est relu
-  // par le calculateur depuis le stockage local (lib/profileStorage.ts, SPEC-06).
-  const [effort, setEffort] = useState<EffortFormValues>(() =>
-    effortFromSearch(searchParams),
+  const { status } = useUserSettings();
+
+  // Les composants initialisent leur état local depuis le contexte : on attend l'hydratation.
+  if (status === "loading") {
+    return null;
+  }
+
+  return <HomeForm />;
+}
+
+function HomeForm() {
+  const router = useRouter();
+  const { activity, minutes } = useActivity();
+  const settingsForm = useSettingsForm();
+  const forms = useNutritionForms();
+  /** Passe à true au premier « Voir mes résultats » : les champs vides s'annoncent. */
+  const [attempted, setAttempted] = useState(false);
+
+  const profileValues = useWatch({
+    control: settingsForm.form.control,
+    name: "profile",
+  });
+
+  const sport = findSport(activity.sportId);
+  const gpxMode =
+    activity.inputMode === "gpx" &&
+    sport !== undefined &&
+    supportsGpx(sport);
+
+  const sex =
+    profileValues.sex === "male" || profileValues.sex === "female"
+      ? profileValues.sex
+      : "";
+  const inputErrors = validateInputs({
+    sex,
+    age: profileValues.age,
+    weightKg: profileValues.weightKg,
+    heightCm: profileValues.heightCm,
+    sportId: activity.sportId,
+    minutes: "",
+  });
+  const effortErrors = validateEffort(activity.effort);
+  const activityOk = gpxMode
+    ? minutes !== null
+    : Object.keys(inputErrors).length === 0 &&
+      Object.keys(effortErrors).length === 0;
+
+  /** Les trois validations s'exécutent toujours : toutes les erreurs restent visibles. */
+  async function handleShowResults() {
+    const settingsOk = await settingsForm.validateProfile();
+    setAttempted(true);
+    const nutritionOk = await forms.submitAll();
+
+    if (settingsOk && activityOk && nutritionOk && minutes !== null) {
+      router.push("/nutrition");
+    }
+  }
+
+  const caps = (
+    <div className="mt-4">
+      <div className="flex items-start justify-between gap-2">
+        <h3 id="titre-plafond" className={CARD_TITLE}>
+          Plafond à respecter
+        </h3>
+        <InfoTooltip
+          id="help-caps"
+          label="Aide : plafond à respecter"
+          title="Plafond à respecter"
+        >
+          {CAPS_HELP}
+        </InfoTooltip>
+      </div>
+      <FormProvider {...forms.capsForm}>
+        <CapsFields patchSettings={forms.patchSettings} />
+      </FormProvider>
+    </div>
   );
-  // Durée dérivée : le calculateur la transmet à chaque changement.
-  const [minutes, setMinutes] = useState("");
 
   return (
     <>
       <EnergyCalculator
-        initialEffort={effort}
-        onMinutesChange={setMinutes}
-        onEffortChange={setEffort}
+        settings={settingsForm}
+        showEmptyErrors={attempted}
+        onReset={() => setAttempted(false)}
+        caps={caps}
       />
-      <NutritionPlanner minutes={minutes} effort={effort} />
+      <NutritionPlanner
+        forms={forms}
+        onShowResults={() => void handleShowResults()}
+      />
     </>
   );
 }

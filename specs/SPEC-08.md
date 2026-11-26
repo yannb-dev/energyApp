@@ -26,10 +26,10 @@ Doublons constatés :
 | Sous-spec | Contenu | Changement visible |
 | --- | --- | --- |
 | [08.1](SPEC-08.1.md) | Schémas Zod centralisés, les `validate*` délèguent | Aucun |
-| 08.2 | `lib/storage.ts` générique, lecture par `safeParse` | Aucun |
-| 08.3 | `UserSettingsProvider` + `ActivityProvider`, fin des callbacks et des paramètres d'URL | Recharger `/nutrition` affiche « Données introuvables » |
-| 08.4 | React Hook Form, découpage en `components/forms/*` | Aucun (mêmes libellés, mêmes messages) |
-| 08.5 | Point 7 : page 1 saisie seule, page 2 Résultats (énergie, récap, profil GPX, timeline) | Oui |
+| [08.2](SPEC-08.2.md) | `lib/storage.ts` générique, lecture par `safeParse` | Aucun |
+| [08.3](SPEC-08.3.md) | `UserSettingsProvider` + `ActivityProvider`, fin des callbacks et des paramètres d'URL | Recharger `/nutrition` affiche « Données introuvables » ; le retour depuis `/nutrition` conserve sport, effort et trace GPX |
+| [08.4](SPEC-08.4.md) | React Hook Form, découpage en `components/forms/*` | Paramètres : un champ vidé affiche son erreur immédiatement (sinon mêmes libellés, mêmes messages) |
+| [08.5](SPEC-08.5.md) | Point 7 : page 1 saisie seule, page 2 Résultats (énergie, récap, profil GPX, timeline) | Oui : « Voir mes résultats » remplace « Calculer » et « Calculer ma nutrition » ; résultats, profil altimétrique et splits passent en page 2 |
 
 Chaque sous-spec est écrite juste avant son implémentation et relue avant de passer à la suivante.
 
@@ -46,13 +46,13 @@ Versions de référence : `../../consigne/catalogue.md`.
 - TypeScript strict, pas de `any`. TDD : test écrit et vu en échec avant chaque code.
 - **Messages d'erreur identiques au mot près** aux messages actuels : les tests existants restent la référence.
 - Libellés `<label>` et `data-testid` inchangés (sauf mention explicite en 08.5).
-- Les bornes restent dans les constantes existantes (`AGE_MIN`, `CARB_CAP_MIN`, `PRODUCT_KCAL_MAX`…) ; les schémas les importent, ils ne recopient aucun chiffre.
+- Les bornes restent dans des constantes nommées (`AGE_MIN`, `CARB_CAP_MIN`, `PRODUCT_KCAL_MAX`…) ; les schémas les importent, ils ne recopient aucun chiffre. Depuis 08.1, les bornes utilisées par les schémas vivent dans `lib/schemas/limits.ts` (évite un import circulaire) et sont réexportées par leurs modules d'origine.
 - `parseDecimal` (virgule décimale) et `parsePace` sont réutilisés dans les schémas.
 - Aucun `fetch`, aucune API Route. Accès au `localStorage` uniquement dans `lib/`, toujours dans un `try/catch`, jamais pendant le rendu. La trace GPX n'est jamais stockée.
 - Couleurs via les tokens du thème, mobile-first, cibles ≥ 44 px, focus visible, animations `motion-safe:`.
 - `lib/nutrition.ts` contient un ancien modèle mono-produit (`validateNutritionInputs`, `computeNutritionPlan`, constantes produit en double) : hors périmètre, traité au point 10 (code mort). Ne pas le migrer.
 - Ne modifier que les fichiers listés dans la sous-spec en cours. Pas de commit ni de push.
-- Commandes autorisées (liste fermée) : `npm run typecheck` · `npm run lint` · `npm run test:run` · `git status` · `git diff`. Toute autre commande : s'arrêter et demander.
+- Commandes autorisées (liste fermée) : `npm run typecheck` · `npm run lint` · `npm run test:run` · `git status` · `git diff` (sans pathspec). Les vérifications « grep » des critères se font avec l'outil de recherche de l'agent. Toute autre commande : s'arrêter et demander.
 - Tout écart par rapport à la SPEC : s'arrêter et le signaler.
 
 ### Critères d'acceptation de l'ensemble (vérifiés une fois 08.5 livrée)

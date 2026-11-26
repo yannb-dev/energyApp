@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 
+import AppProviders from "@/components/providers/AppProviders";
+
 import "./globals.css";
 
 const inter = Inter({
@@ -18,7 +20,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="fr" className={inter.variable}>
-      <body className="min-h-screen bg-canvas font-sans text-ink antialiased">{children}</body>
+      <body className="min-h-screen bg-canvas font-sans text-ink antialiased">
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }
