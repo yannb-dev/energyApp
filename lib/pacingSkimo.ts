@@ -15,10 +15,10 @@ import type { PacingPhases, PacingResult, PacingSplit } from "@/lib/pacingRun";
 
 /** Unités d'effort Munter par heure selon l'intensité (à calibrer). */
 export const SKIMO_ASCENT_UNITS_PER_HOUR: Record<IntensityId, number> = {
-  endurance: 3.5,
-  moderate: 4,
-  sustained: 5,
-  race: 6.5,
+  endurance: 4,
+  moderate: 5.5,
+  sustained: 6.5,
+  race: 8,
 };
 
 /** Dénivelé minimal (m) pour confirmer un changement de phase (à calibrer). */
@@ -285,8 +285,7 @@ export function skimoAverageMet(
   phases: SkimoMetPhasesInput,
   metPhases: { ascent: number; descent: number },
 ): number {
-  const totalSec =
-    phases.ascentSec + phases.descentSec + phases.transitionSec;
+  const totalSec = phases.ascentSec + phases.descentSec + phases.transitionSec;
   if (totalSec <= 0) {
     return metPhases.ascent;
   }
